@@ -4,203 +4,178 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// --- Styles ---
 var (
-	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true).MarginBottom(1)
-
-	// Style buat kursor (tanda panah ">")
+	genitzStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7F56D9")).Bold(true)
+	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true).MarginBottom(1)
+	selStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true)
 	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true)
-
-	// Style buat Nama Dependency (selalu Bold & Putih/Terang)
-	nameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
-
-	// Style khusus pas item lagi dipilih (highlight)
-	selectedNameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00ADD8"))
-
-	descStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true)
-	checkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#04B575")).Bold(true)
+	descStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true)
+	checkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#04B575")).Bold(true)
+	nameStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
 )
-
-// --- Categories ---
-const (
-	CatFramework     = "framework"
-	CatORM           = "orm"
-	CatDriver        = "driver"
-	CatCache         = "cache"
-	CatMessageBroker = "broker"
-	CatRPC           = "rpc"
-	CatLogger        = "logger"
-	CatTracing       = "tracing"
-	CatMetrics       = "metrics"
-	CatAuth          = "auth"
-	CatValidation    = "validation"
-	CatDoc           = "documentation"
-)
-
-func getBadgeStyle(category string) lipgloss.Style {
-	base := lipgloss.NewStyle().
-		Bold(true).
-		Padding(0, 1).
-		MarginLeft(1).
-		Foreground(lipgloss.Color("#FFFFFF")) // Teks putih biar kontras
-
-	switch category {
-	case CatFramework:
-		return base.Background(lipgloss.Color("#00ADD8")) // Gopher Blue
-	case CatORM:
-		return base.Background(lipgloss.Color("#F7931E")) // Orange (Database-ish)
-	case CatDriver:
-		return base.Background(lipgloss.Color("#4DB33D")) // Leaf Green (MongoDB/SQL)
-	case CatCache:
-		return base.Background(lipgloss.Color("#D82C20")) // Redis Red
-	case CatMessageBroker:
-		return base.Background(lipgloss.Color("#004E7A")) // Deep Blue (Kafka/NATS)
-	case CatRPC:
-		return base.Background(lipgloss.Color("#00B5AD")) // Teal (gRPC)
-	case CatLogger:
-		return base.Background(lipgloss.Color("#555555")) // Grey (Logs)
-	case CatTracing:
-		return base.Background(lipgloss.Color("#6B4E90")) // Purple (Observability)
-	case CatMetrics:
-		return base.Background(lipgloss.Color("#FF4500")) // Orange Red (Prometheus)
-	case CatAuth:
-		return base.Background(lipgloss.Color("#E91E63")) // Pink/Magenta (Security)
-	case CatValidation:
-		return base.Background(lipgloss.Color("#8BC34A")) // Light Green
-	case CatDoc:
-		return base.Background(lipgloss.Color("#3F51B5")) // Indigo (Swagger)
-	default:
-		return base.Background(lipgloss.Color("#222222")) // Dark Grey
-	}
-}
-
-// --- Types ---
-type Dependency struct {
-	ID          string
-	Name        string
-	Category    string
-	ImportPath  string
-	IsDefault   bool
-	Requires    []string
-	Description string
-}
 
 type Model struct {
-	Registry []Dependency     // Daftar master
-	Chosen   map[int]struct{} // Index yang dicentang user
-	Cursor   int              // Posisi kursor
-	Done     bool             // Status apakah sudah enter
+	Step        Step
+	FolderInput textinput.Model
+	PkgInput    textinput.Model
+
+	ArchOptions  []string
+	ArchCursor   int
+	SelectedArch string
+
+	Registry []Dependency
+	Chosen   map[int]struct{}
+	Cursor   int
+
+	Done bool
 }
 
-// --- Data ---
-var DependencyRegistry = []Dependency{
-	{
-		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
-		ImportPath:  "github.com/gin-gonic/gin",
-		Description: "High-performance HTTP web framework",
-	},
-	{
-		ID: "gorm", Name: "GORM", Category: CatORM,
-		ImportPath:  "gorm.io/gorm",
-		Description: "The fantastic ORM library for Golang",
-	},
-	{
-		ID: "zap", Name: "Uber Zap", Category: CatLogger,
-		ImportPath:  "go.uber.org/zap",
-		Description: "Blazing fast, structured, leveled logging",
-	},
-}
-
-// --- Tea Functions ---
 func InitialModel() Model {
+	// Setup Folder Input
+	f := textinput.New()
+	f.Placeholder = "my-awesome-app"
+	f.Focus()
+
+	// Setup Package Input
+	p := textinput.New()
+	p.Placeholder = "github.com/username/repo"
+
 	return Model{
-		Registry: DependencyRegistry,
-		Chosen:   make(map[int]struct{}),
+		Step:        StepSplash,
+		FolderInput: f,
+		PkgInput:    p,
+		ArchOptions: []string{ArchStandard, ArchMicro, ArchClean, ArchDDD, ArchCLI},
+		Registry:    DependencyRegistry,
+		Chosen:      make(map[int]struct{}),
 	}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+
 		case "ctrl+c", "q":
 			return m, tea.Quit
-
-		case "up", "k":
-			if m.Cursor > 0 {
-				m.Cursor--
-			}
-
-		case "down", "j":
-			if m.Cursor < len(m.Registry)-1 {
-				m.Cursor++
-			}
-
-		case " ": // Gunakan spasi untuk memilih (multi-select)
-			_, ok := m.Chosen[m.Cursor]
-			if ok {
-				delete(m.Chosen, m.Cursor)
-			} else {
-				m.Chosen[m.Cursor] = struct{}{}
-			}
-
 		case "enter":
-			m.Done = true
-			return m, tea.Quit
+			switch m.Step {
+			case StepSplash:
+				m.Step = StepFolder
+				return m, nil
+			case StepFolder:
+				m.Step = StepPackage
+				m.PkgInput.Focus()
+				return m, nil
+			case StepPackage:
+				m.Step = StepArch
+				return m, nil
+			case StepArch:
+				m.SelectedArch = m.ArchOptions[m.ArchCursor]
+				m.Step = StepDeps
+				return m, nil
+			case StepDeps:
+				m.Done = true
+				return m, tea.Quit
+			}
 		}
 	}
-	return m, nil
+
+	// Logic navigasi per step
+	switch m.Step {
+	case StepFolder:
+		m.FolderInput, cmd = m.FolderInput.Update(msg)
+	case StepPackage:
+		m.PkgInput, cmd = m.PkgInput.Update(msg)
+	case StepArch:
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "up", "k":
+				if m.ArchCursor > 0 {
+					m.ArchCursor--
+				}
+			case "down", "j":
+				if m.ArchCursor < len(m.ArchOptions)-1 {
+					m.ArchCursor++
+				}
+			}
+		}
+	case StepDeps:
+		// Logic navigasi dependency (sama kayak kode sebelumnya)
+		if msg, ok := msg.(tea.KeyMsg); ok {
+			switch msg.String() {
+			case "up", "k":
+				if m.Cursor > 0 {
+					m.Cursor--
+				}
+			case "down", "j":
+				if m.Cursor < len(m.Registry)-1 {
+					m.Cursor++
+				}
+			case " ":
+				if _, ok := m.Chosen[m.Cursor]; ok {
+					delete(m.Chosen, m.Cursor)
+				} else {
+					m.Chosen[m.Cursor] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return m, cmd
 }
 
 func (m Model) View() string {
 	if m.Done {
-		return "\n✅ Pilihan disimpan! Memproses generator...\n"
+		return "\n🚀 Generating " + m.SelectedArch + " project...\n"
 	}
 
-	var s strings.Builder
+	switch m.Step {
+	case StepSplash:
+		return RenderSplashView("1.20.3") // Bisa diganti dengan versi Go yang sebenarnya
 
-	s.WriteString(titleStyle.Render("🚀 GO-INITIALIZR: Pilih Dependencies"))
-	s.WriteString("\n")
+	case StepFolder:
+		return fmt.Sprintf(
+			"📁 %s\n\n%s\n\n%s",
+			genitzStyle.Render("Folder Name:"),
+			m.FolderInput.View(),
+			"(Enter to continue)",
+		)
 
-	for i, dep := range m.Registry {
-		// 1. Render Kursor
-		cursor := "  "
-		if m.Cursor == i {
-			cursor = cursorStyle.Render("> ")
+	case StepPackage:
+		return fmt.Sprintf(
+			"📦 %s\n\n%s\n\n%s",
+			genitzStyle.Render("Package Name:"),
+			m.PkgInput.View(),
+			"(Enter to continue)",
+		)
+
+	case StepArch:
+		var s strings.Builder
+		s.WriteString("🏗️  " + genitzStyle.Render("Choose Architecture:") + "\n\n")
+		for i, opt := range m.ArchOptions {
+			cursor := "  "
+			if m.ArchCursor == i {
+				cursor = cursorStyle.Render("> ")
+				s.WriteString(fmt.Sprintf("%s%s\n", cursor, selStyle.Render(opt)))
+			} else {
+				s.WriteString(fmt.Sprintf("%s%s\n", cursor, opt))
+			}
 		}
+		return s.String()
 
-		// 2. Render Checkbox
-		checked := " [ ] "
-		if _, ok := m.Chosen[i]; ok {
-			checked = checkStyle.Render(" [x] ")
-		}
-
-		// 3. Render Nama Library (BOLD & KONTRAS)
-		var name string
-		if m.Cursor == i {
-			// Pas kursor di sini, kita kasih warna biru cerah biar beda
-			name = selectedNameStyle.Render(dep.Name)
-		} else {
-			// Pas kursor nggak di sini, tetep Bold tapi putih
-			name = nameStyle.Render(dep.Name)
-		}
-
-		// 4. Render Badge Kategori
-		badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
-
-		// Gabungin baris utama
-		s.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, checked, name, badge))
-
-		// 5. Deskripsi
-		s.WriteString(fmt.Sprintf("      %s\n", descStyle.Render(dep.Description)))
+	case StepDeps:
+		// View dependency yang sudah kita buat sebelumnya
+		return m.renderDependencyView()
 	}
 
-	s.WriteString("\n(Space: Pilih, Enter: Lanjut, Q: Keluar)\n")
-	return s.String()
+	return ""
 }

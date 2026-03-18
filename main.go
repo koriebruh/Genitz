@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	// Jalankan TUI
 	p := tea.NewProgram(tui.InitialModel())
 	m, err := p.Run()
 	if err != nil {
