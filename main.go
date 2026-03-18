@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// Casting ke model TUI kita
-	finalModel := m.(tui.Model)
+	finalModel := m.(*tui.Model)
 
 	// Cek apakah ada yang dipilih
 	if len(finalModel.Chosen) > 0 {

@@ -8,15 +8,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ─── Palette ─────────────────────────────────────────────────────────────────
-
 var splashGradient = []string{
 	"#F5D0FE", "#F0ABFC", "#E879F9", "#D946EF",
 	"#C026D3", "#A855F7", "#9333EA", "#7C3AED",
 	"#6D28D9", "#4F46E5", "#67E8F9", "#22D3EE",
 }
-
-// ─── ASCII art logo ───────────────────────────────────────────────────────────
 
 var splashLogo = []string{
 	`   █████████                      █████  █████                `,
@@ -31,34 +27,34 @@ var splashLogo = []string{
 
 const splashLogoWidth = 64
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 var (
 	splashVersionLabel = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
-				Italic(true)
-
+		Foreground(lipgloss.Color("#6B7280")).
+		Italic(true)
 	splashVersionValue = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#22D3EE")).
-				Bold(true)
-
+		Foreground(lipgloss.Color("#22D3EE")).
+		Bold(true)
 	splashDivider = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#2D1B69"))
-
+		Foreground(lipgloss.Color("#2D1B69"))
 	splashHint = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#374151"))
-
+		Foreground(lipgloss.Color("#374151"))
 	splashContainer = lipgloss.NewStyle().
-			Padding(1, 3)
+		Padding(1, 3)
 )
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+func splashFetchGoVersion() string {
+	out, err := exec.Command("go", "version").Output()
+	if err != nil {
+		return "not found — make sure Go is installed"
+	}
+	return strings.TrimPrefix(strings.TrimSpace(string(out)), "go version ")
+}
 
 func splashRenderLogo() string {
 	var sb strings.Builder
 	for i, row := range splashLogo {
-		main := splashGradient[splashMin(i, len(splashGradient)-1)]
-		depth := splashGradient[splashMin(i+2, len(splashGradient)-1)]
+		main := splashGradient[min(i, len(splashGradient)-1)]
+		depth := splashGradient[min(i+2, len(splashGradient)-1)]
 		for _, ch := range row {
 			switch ch {
 			case ' ':
@@ -103,10 +99,7 @@ func splashRenderTagline() string {
 	for _, s := range segs {
 		plain += s.text
 	}
-	pad := (splashLogoWidth - len([]rune(plain))) / 2
-	if pad < 0 {
-		pad = 0
-	}
+	pad := max((splashLogoWidth-len([]rune(plain)))/2, 0)
 
 	var sb strings.Builder
 	sb.WriteString(strings.Repeat(" ", pad))
@@ -124,33 +117,31 @@ func splashRenderTagline() string {
 	return sb.String()
 }
 
-func splashMin(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+func splashRenderContent(goVersion string) string {
+	var sb strings.Builder
+	sb.WriteString(splashRenderLogo())
+	sb.WriteString(splashRenderTagline())
+	sb.WriteString("\n" + splashDivider.Render(strings.Repeat("━", splashLogoWidth)) + "\n\n")
+	sb.WriteString(
+		splashVersionLabel.Render("  Go version  ") +
+			splashVersionValue.Render(goVersion) + "\n\n",
+	)
+	sb.WriteString(splashHint.Render("  q · esc · enter  continue") + "\n")
+	return splashContainer.Render(sb.String())
 }
-
-// ─── Bubble Tea model (internal) ─────────────────────────────────────────────
 
 type splashModel struct {
 	goVersion string
 	ready     bool
 }
 
+type splashVersionMsg string
+
 func (m splashModel) Init() tea.Cmd {
 	return func() tea.Msg {
-		out, err := exec.Command("go", "version").Output()
-		if err != nil {
-			return splashVersionMsg("not found — make sure Go is installed")
-		}
-		return splashVersionMsg(
-			strings.TrimPrefix(strings.TrimSpace(string(out)), "go version "),
-		)
+		return splashVersionMsg(splashFetchGoVersion())
 	}
 }
-
-type splashVersionMsg string
 
 func (m splashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -170,30 +161,11 @@ func (m splashModel) View() string {
 	if !m.ready {
 		return "\n  Loading...\n"
 	}
-
-	var sb strings.Builder
-	sb.WriteString(splashRenderLogo())
-	sb.WriteString(splashRenderTagline())
-	sb.WriteString("\n" + splashDivider.Render(strings.Repeat("━", splashLogoWidth)) + "\n\n")
-	sb.WriteString(
-		splashVersionLabel.Render("  Go version  ") +
-			splashVersionValue.Render(m.goVersion) + "\n\n",
-	)
-	sb.WriteString(splashHint.Render("  q · esc · enter  continue") + "\n")
-
-	return splashContainer.Render(sb.String())
+	return splashRenderContent(m.goVersion)
 }
 
-func RenderSplashView(goVersion string) string {
-	var sb strings.Builder
-	sb.WriteString(splashRenderLogo())
-	sb.WriteString(splashRenderTagline())
-	sb.WriteString("\n" + splashDivider.Render(strings.Repeat("━", splashLogoWidth)) + "\n\n")
-	sb.WriteString(
-		splashVersionLabel.Render("  Go version  ") +
-			splashVersionValue.Render(goVersion) + "\n\n",
-	)
-	sb.WriteString(splashHint.Render("  [enter] continue  [q] quit") + "\n")
-
-	return splashContainer.Render(sb.String())
+// RenderSplashView fetches the Go version and renders the splash screen.
+// Use this for non-interactive / static rendering contexts.
+func RenderSplashView() string {
+	return splashRenderContent(splashFetchGoVersion())
 }

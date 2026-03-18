@@ -87,29 +87,29 @@ var DependencyRegistry = []Dependency{
 	},
 }
 
-func (m Model) renderDependencyView() string {
+func (m *Model) renderDependencyView() string {
 	var s strings.Builder
 
 	// Judul Section
-	s.WriteString(titleStyle.Render("🚀 GENITZ: Select Dependencies") + "\n")
+	s.WriteString(styles.Title.Render("🚀 GENITZ: Select Dependencies") + "\n")
 
 	for i, dep := range m.Registry {
 		// 1. Render Kursor
 		cursor := "  "
 		if m.Cursor == i {
-			cursor = cursorStyle.Render("> ")
+			cursor = styles.Cursor.Render("> ")
 		}
 
 		// 2. Render Checkbox
 		checked := " [ ] "
 		if _, ok := m.Chosen[i]; ok {
-			checked = checkStyle.Render(" [x] ")
+			checked = styles.Checkbox.Render(" [x] ")
 		}
 
 		// 3. Render Nama (Bold/Selected)
-		name := nameStyle.Render(dep.Name)
+		name := styles.Name.Render(dep.Name)
 		if m.Cursor == i {
-			name = selStyle.Render(dep.Name)
+			name = styles.Selected.Render(dep.Name)
 		}
 
 		// 4. Render Badge Kategori
@@ -119,7 +119,7 @@ func (m Model) renderDependencyView() string {
 		s.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, checked, name, badge))
 
 		// 5. Render Deskripsi
-		s.WriteString(fmt.Sprintf("      %s\n", descStyle.Render(dep.Description)))
+		s.WriteString(fmt.Sprintf("      %s\n", styles.Description.Render(dep.Description)))
 	}
 
 	s.WriteString("\n(Space: Toggle, Enter: Finish, Q: Quit)\n")

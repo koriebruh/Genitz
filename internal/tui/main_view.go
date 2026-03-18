@@ -6,21 +6,11 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-)
-
-var (
-	genitzStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7F56D9")).Bold(true)
-	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true).MarginBottom(1)
-	selStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true)
-	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ADD8")).Bold(true)
-	descStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true)
-	checkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#04B575")).Bold(true)
-	nameStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
 )
 
 type Model struct {
-	Step        Step
+	Step Step
+
 	FolderInput textinput.Model
 	PkgInput    textinput.Model
 
@@ -35,17 +25,14 @@ type Model struct {
 	Done bool
 }
 
-func InitialModel() Model {
-	// Setup Folder Input
+func InitialModel() *Model {
 	f := textinput.New()
 	f.Placeholder = "my-awesome-app"
-	f.Focus()
 
-	// Setup Package Input
 	p := textinput.New()
 	p.Placeholder = "github.com/username/repo"
 
-	return Model{
+	return &Model{
 		Step:        StepSplash,
 		FolderInput: f,
 		PkgInput:    p,
@@ -55,127 +42,197 @@ func InitialModel() Model {
 	}
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m *Model) Init() tea.Cmd { return nil }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "enter":
-			switch m.Step {
-			case StepSplash:
-				m.Step = StepFolder
-				return m, nil
-			case StepFolder:
-				m.Step = StepPackage
-				m.PkgInput.Focus()
-				return m, nil
-			case StepPackage:
-				m.Step = StepArch
-				return m, nil
-			case StepArch:
-				m.SelectedArch = m.ArchOptions[m.ArchCursor]
-				m.Step = StepDeps
-				return m, nil
-			case StepDeps:
-				m.Done = true
-				return m, tea.Quit
-			}
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if cmd, handled := m.handleGlobalKeys(keyMsg); handled {
+			return m, cmd
+		}
+		if cmd, handled := m.handleStepKeys(keyMsg); handled {
+			return m, cmd
 		}
 	}
 
-	// Logic navigasi per step
-	switch m.Step {
-	case StepFolder:
-		m.FolderInput, cmd = m.FolderInput.Update(msg)
-	case StepPackage:
-		m.PkgInput, cmd = m.PkgInput.Update(msg)
-	case StepArch:
-		if msg, ok := msg.(tea.KeyMsg); ok {
-			switch msg.String() {
-			case "up", "k":
-				if m.ArchCursor > 0 {
-					m.ArchCursor--
-				}
-			case "down", "j":
-				if m.ArchCursor < len(m.ArchOptions)-1 {
-					m.ArchCursor++
-				}
-			}
-		}
-	case StepDeps:
-		// Logic navigasi dependency (sama kayak kode sebelumnya)
-		if msg, ok := msg.(tea.KeyMsg); ok {
-			switch msg.String() {
-			case "up", "k":
-				if m.Cursor > 0 {
-					m.Cursor--
-				}
-			case "down", "j":
-				if m.Cursor < len(m.Registry)-1 {
-					m.Cursor++
-				}
-			case " ":
-				if _, ok := m.Chosen[m.Cursor]; ok {
-					delete(m.Chosen, m.Cursor)
-				} else {
-					m.Chosen[m.Cursor] = struct{}{}
-				}
-			}
-		}
-	}
-
-	return m, cmd
+	return m, m.updateStep(msg)
 }
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	if m.Done {
 		return "\n🚀 Generating " + m.SelectedArch + " project...\n"
 	}
 
 	switch m.Step {
 	case StepSplash:
-		return RenderSplashView("1.20.3") // Bisa diganti dengan versi Go yang sebenarnya
-
+		return RenderSplashView()
 	case StepFolder:
-		return fmt.Sprintf(
-			"📁 %s\n\n%s\n\n%s",
-			genitzStyle.Render("Folder Name:"),
-			m.FolderInput.View(),
-			"(Enter to continue)",
-		)
-
+		return m.viewFolder()
 	case StepPackage:
-		return fmt.Sprintf(
-			"📦 %s\n\n%s\n\n%s",
-			genitzStyle.Render("Package Name:"),
-			m.PkgInput.View(),
-			"(Enter to continue)",
-		)
-
+		return m.viewPackage()
 	case StepArch:
-		var s strings.Builder
-		s.WriteString("🏗️  " + genitzStyle.Render("Choose Architecture:") + "\n\n")
-		for i, opt := range m.ArchOptions {
-			cursor := "  "
-			if m.ArchCursor == i {
-				cursor = cursorStyle.Render("> ")
-				s.WriteString(fmt.Sprintf("%s%s\n", cursor, selStyle.Render(opt)))
-			} else {
-				s.WriteString(fmt.Sprintf("%s%s\n", cursor, opt))
-			}
-		}
-		return s.String()
-
+		return m.viewArchitecture()
 	case StepDeps:
-		// View dependency yang sudah kita buat sebelumnya
 		return m.renderDependencyView()
 	}
 
 	return ""
+}
+
+func (m *Model) handleGlobalKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return tea.Quit, true
+	}
+	return nil, false
+}
+
+func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch m.Step {
+	case StepSplash:
+		return m.handleSplashKeys(msg)
+	case StepFolder:
+		return m.handleFolderKeys(msg)
+	case StepPackage:
+		return m.handlePackageKeys(msg)
+	case StepArch:
+		return m.handleArchKeys(msg)
+	case StepDeps:
+		return m.handleDepsKeys(msg)
+	}
+	return nil, false
+}
+
+func (m *Model) updateStep(msg tea.Msg) tea.Cmd {
+	switch m.Step {
+	case StepFolder:
+		return m.updateFolderInput(msg)
+	case StepPackage:
+		return m.updatePackageInput(msg)
+	}
+	return nil
+}
+
+func (m *Model) handleSplashKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	if msg.String() == "enter" {
+		m.Step = StepFolder
+		m.FolderInput.Focus()
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *Model) handleFolderKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	if msg.String() == "enter" {
+		m.FolderInput.Blur()
+		m.PkgInput.Focus()
+		m.Step = StepPackage
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *Model) handlePackageKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	if msg.String() == "enter" {
+		m.PkgInput.Blur()
+		m.Step = StepArch
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *Model) handleArchKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case "up", "k":
+		if m.ArchCursor > 0 {
+			m.ArchCursor--
+		}
+		return nil, true
+	case "down", "j":
+		if m.ArchCursor < len(m.ArchOptions)-1 {
+			m.ArchCursor++
+		}
+		return nil, true
+	case "enter":
+		m.SelectedArch = m.ArchOptions[m.ArchCursor]
+		m.Step = StepDeps
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case "up", "k":
+		if m.Cursor > 0 {
+			m.Cursor--
+		}
+		return nil, true
+	case "down", "j":
+		if m.Cursor < len(m.Registry)-1 {
+			m.Cursor++
+		}
+		return nil, true
+	case " ":
+		m.toggleDependency(m.Cursor)
+		return nil, true
+	case "enter":
+		m.Done = true
+		return tea.Quit, true
+	}
+	return nil, false
+}
+
+func (m *Model) updateFolderInput(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.FolderInput, cmd = m.FolderInput.Update(msg)
+	return cmd
+}
+
+func (m *Model) updatePackageInput(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.PkgInput, cmd = m.PkgInput.Update(msg)
+	return cmd
+}
+
+func (m *Model) toggleDependency(index int) {
+	if _, ok := m.Chosen[index]; ok {
+		delete(m.Chosen, index)
+		return
+	}
+	m.Chosen[index] = struct{}{}
+}
+
+func (m *Model) viewFolder() string {
+	return fmt.Sprintf(
+		"📁 %s\n\n%s\n\n%s",
+		styles.Brand.Render("Folder Name:"),
+		m.FolderInput.View(),
+		"(Enter to continue)",
+	)
+}
+
+func (m *Model) viewPackage() string {
+	return fmt.Sprintf(
+		"📦 %s\n\n%s\n\n%s",
+		styles.Brand.Render("Package Name:"),
+		m.PkgInput.View(),
+		"(Enter to continue)",
+	)
+}
+
+func (m *Model) viewArchitecture() string {
+	var b strings.Builder
+	b.WriteString("🏗️  " + styles.Brand.Render("Choose Architecture:") + "\n\n")
+
+	for i, opt := range m.ArchOptions {
+		cursor := "  "
+		if m.ArchCursor == i {
+			cursor = styles.Cursor.Render("> ")
+			b.WriteString(fmt.Sprintf("%s%s\n", cursor, styles.Selected.Render(opt)))
+			continue
+		}
+		b.WriteString(fmt.Sprintf("%s%s\n", cursor, opt))
+	}
+
+	return b.String()
 }
