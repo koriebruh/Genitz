@@ -22,6 +22,7 @@ const (
 	CatDoc           = "documentation"
 )
 
+// getBadgeStyle returns a coloured pill style for a given dependency category.
 func getBadgeStyle(category string) lipgloss.Style {
 	base := lipgloss.NewStyle().
 		Bold(true).
@@ -59,6 +60,7 @@ func getBadgeStyle(category string) lipgloss.Style {
 	}
 }
 
+// Dependency describes a Go dependency the user can opt into.
 type Dependency struct {
 	ID          string
 	Name        string
@@ -72,23 +74,24 @@ type Dependency struct {
 
 var depsPath = "internal/generator/templetes/feature/%s"
 
+// DependencyRegistry is the list of selectable dependencies shown in StepDeps.
 var DependencyRegistry = []Dependency{
 	{
 		ID: "redis", Name: "redis", Category: CatCache,
 		ImportPath:  "github.com/redis/go-redis/v9",
-		Description: "redis client for Go",
+		Description: "Redis client for Go",
 		TemplateDir: fmt.Sprintf(depsPath, "redis"),
 	},
 	{
 		ID: "validator", Name: "go playground validator", Category: CatValidation,
 		ImportPath:  "github.com/go-playground/validator/v10",
-		Description: "Package validator implements value validations for structs and individual fields based on tags.",
+		Description: "Struct and field validation via struct tags",
 		TemplateDir: fmt.Sprintf(depsPath, "validator"),
 	},
 	{
 		ID: "fiber", Name: "Fiber", Category: CatFramework,
 		ImportPath:  "github.com/gofiber/fiber/v3",
-		Description: "Express inspired web framework written in Go",
+		Description: "Express-inspired web framework written in Go",
 		TemplateDir: fmt.Sprintf(depsPath, "fiber"),
 	},
 	{
@@ -111,41 +114,147 @@ var DependencyRegistry = []Dependency{
 	},
 }
 
+// depGroups defines the display order and category membership for each group.
+var depGroups = []struct {
+	label      string
+	categories []string
+}{
+	{"Web / Routing", []string{CatFramework, CatRPC}},
+	{"Database", []string{CatORM, CatDriver}},
+	{"Cache", []string{CatCache}},
+	{"Messaging", []string{CatMessageBroker}},
+	{"Observability", []string{CatLogger, CatTracing, CatMetrics}},
+	{"Security", []string{CatAuth}},
+	{"Utilities", []string{CatValidation, CatDoc}},
+}
+
+// groupHeaderStyle is the amber label rendered above each category section.
+var groupHeaderStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#E3B341")).
+	Bold(true)
+
+// buildVisibleOrder returns Registry indices in visual group order, optionally
+// filtered by m.SearchQuery (case-insensitive substring match on name/category).
+// This is the canonical order for Cursor navigation — Cursor is a position
+// inside this slice, not a raw Registry index.
+func (m *Model) buildVisibleOrder() []int {
+	query := strings.ToLower(strings.TrimSpace(m.SearchQuery))
+	var order []int
+	seen := make(map[int]bool)
+	for _, group := range depGroups {
+		for i, dep := range m.Registry {
+			if seen[i] {
+				continue
+			}
+			for _, cat := range group.categories {
+				if dep.Category != cat {
+					continue
+				}
+				if query == "" ||
+					strings.Contains(strings.ToLower(dep.Name), query) ||
+					strings.Contains(strings.ToLower(dep.Category), query) ||
+					strings.Contains(strings.ToLower(dep.Description), query) {
+					order = append(order, i)
+					seen[i] = true
+				}
+				break
+			}
+		}
+	}
+	return order
+}
+
+// renderDependencyView renders the StepDeps panel body grouped by category.
+// Navigation cursor tracks visual position via buildVisibleOrder, so it never
+// jumps across group boundaries.
 func (m *Model) renderDependencyView() string {
-	var s strings.Builder
+	var b strings.Builder
 
-	// Judul Section
-	s.WriteString(styles.Title.Render("🚀 GENITZ: Select Dependencies") + "\n")
+	b.WriteString(styles.PanelLabel.Render("DEPENDENCIES") + "\n")
+	b.WriteString(styles.PanelHint.Render("Toggle packages, then press enter to review") + "\n\n")
 
-	for i, dep := range m.Registry {
-		// 1. Render Kursor
-		cursor := "  "
-		if m.Cursor == i {
-			cursor = styles.Cursor.Render("> ")
+	// ── Search bar ────────────────────────────────────────────
+	if m.SearchActive || m.SearchQuery != "" {
+		indicator := styles.Description.Render("/")
+		query := styles.Selected.Render(m.SearchQuery)
+		cursor := ""
+		if m.SearchActive {
+			cursor = styles.Cursor.Render("▌")
 		}
-
-		// 2. Render Checkbox
-		checked := " [ ] "
-		if _, ok := m.Chosen[i]; ok {
-			checked = styles.Checkbox.Render(" [x] ")
-		}
-
-		// 3. Render Nama (Bold/Selected)
-		name := styles.Name.Render(dep.Name)
-		if m.Cursor == i {
-			name = styles.Selected.Render(dep.Name)
-		}
-
-		// 4. Render Badge Kategori
-		badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
-
-		// Baris Utama
-		s.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, checked, name, badge))
-
-		// 5. Render Deskripsi
-		s.WriteString(fmt.Sprintf("      %s\n", styles.Description.Render(dep.Description)))
+		b.WriteString(indicator + " " + query + cursor + "\n\n")
+	} else {
+		b.WriteString(styles.Description.Render("  press / to search") + "\n\n")
 	}
 
-	s.WriteString("\n(Space: Toggle, Enter: Finish, Q: Quit)\n")
-	return s.String()
+	visibleOrder := m.buildVisibleOrder()
+
+	if len(visibleOrder) == 0 {
+		b.WriteString(styles.Description.Render("  no results for \""+m.SearchQuery+"\"") + "\n\n")
+	} else {
+		// Track visual position across all items for cursor matching.
+		visualPos := 0
+
+		for _, group := range depGroups {
+			// Collect visible indices that belong to this group, in order.
+			var groupIndices []int
+			for _, idx := range visibleOrder {
+				dep := m.Registry[idx]
+				for _, cat := range group.categories {
+					if dep.Category == cat {
+						groupIndices = append(groupIndices, idx)
+						break
+					}
+				}
+			}
+			if len(groupIndices) == 0 {
+				continue
+			}
+
+			b.WriteString(groupHeaderStyle.Render("▸ "+group.label) + "\n")
+
+			for _, i := range groupIndices {
+				dep := m.Registry[i]
+				isActive := m.Cursor == visualPos
+
+				cursor := "   "
+				if isActive {
+					cursor = styles.Cursor.Render(" ▶ ")
+				}
+
+				_, chosen := m.Chosen[i]
+				check := styles.Description.Render("[ ] ")
+				if chosen {
+					check = styles.Checkbox.Render("[✓] ")
+				}
+
+				name := styles.Name.Render(dep.Name)
+				if isActive {
+					name = styles.Selected.Render(dep.Name)
+				}
+
+				badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
+
+				b.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, check, name, badge))
+				b.WriteString(fmt.Sprintf("      %s\n", styles.Description.Render(dep.Description)))
+
+				visualPos++
+			}
+
+			b.WriteRune('\n')
+		}
+	}
+
+	hints := []keyHint{
+		{"↑↓ / jk", "navigate"},
+		{"space", "toggle"},
+		{"enter", "review"},
+	}
+	if m.SearchActive {
+		hints = append(hints, keyHint{"esc", "close search"})
+	} else {
+		hints = append(hints, keyHint{"/", "search"})
+		hints = append(hints, keyHint{"q", "quit"})
+	}
+	b.WriteString(renderKeyHints(hints))
+	return b.String()
 }

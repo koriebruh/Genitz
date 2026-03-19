@@ -3,16 +3,35 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
+// stepDef defines a single entry in the top step navigation bar.
+type stepDef struct{ num, label string }
+
+var wizardSteps = []stepDef{
+	{"①", "Project"},
+	{"②", "Architecture"},
+	{"③", "Dependencies"},
+	{"④", "Review"},
+}
+
+// keyHint is a keyboard shortcut + action description pair for the footer.
+type keyHint struct{ key, action string }
+
+// Model is the root Bubble Tea model for the Genitz TUI wizard.
 type Model struct {
 	Step Step
 
+	// Project info inputs + inline validation errors.
 	FolderInput textinput.Model
+	FolderErr   string
 	PkgInput    textinput.Model
+	PkgErr      string
 
 	ArchOptions  []string
 	ArchCursor   int
@@ -20,23 +39,36 @@ type Model struct {
 
 	Registry []Dependency
 	Chosen   map[int]Dependency
-	Cursor   int
+
+	// Cursor is the visual position inside the buildVisibleOrder slice,
+	// NOT a raw Registry index. Use currentDepIndex() to get the registry index.
+	Cursor       int
+	SearchQuery  string
+	SearchActive bool
+
+	// Terminal dimensions — updated via tea.WindowSizeMsg.
+	Width  int
+	Height int
 
 	Done bool
 }
 
+// InitialModel constructs the initial model starting at StepFolder.
 func InitialModel() *Model {
 	f := textinput.New()
 	f.Placeholder = "my-awesome-app"
+	f.CharLimit = 64
+	f.Focus()
 
 	p := textinput.New()
 	p.Placeholder = "github.com/username/repo"
+	p.CharLimit = 128
 
 	return &Model{
-		Step:        StepSplash,
+		Step:        StepFolder,
 		FolderInput: f,
 		PkgInput:    p,
-		ArchOptions: []string{ArchMicro, ArchClean},
+		ArchOptions: []string{ArchMicro, ArchClean, ArchStandard, ArchDDD, ArchCLI},
 		Registry:    DependencyRegistry,
 		Chosen:      make(map[int]Dependency),
 	}
@@ -45,6 +77,13 @@ func InitialModel() *Model {
 func (m *Model) Init() tea.Cmd { return nil }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Always handle window resize.
+	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+		m.Width = wsMsg.Width
+		m.Height = wsMsg.Height
+		return m, nil
+	}
+
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		if cmd, handled := m.handleGlobalKeys(keyMsg); handled {
 			return m, cmd
@@ -53,34 +92,149 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	}
-
-	return m, m.updateStep(msg)
+	return m, m.updateInputs(msg)
 }
 
+// View renders the current state. Every step goes through renderFrame.
 func (m *Model) View() string {
-	if m.Done {
-		return "\n🚀 Generating " + m.SelectedArch + " project...\n"
+	var content string
+	switch {
+	case m.Done:
+		content = m.viewDone()
+	case m.Step == StepFolder:
+		content = m.viewFolder()
+	case m.Step == StepPackage:
+		content = m.viewPackage()
+	case m.Step == StepArch:
+		content = m.viewArchitecture()
+	case m.Step == StepDeps:
+		content = m.renderDependencyView()
+	case m.Step == StepReview:
+		content = m.viewReview()
+	}
+	return m.renderFrame(content)
+}
+
+// renderFrame wraps panel content with an adaptive header, step nav, and divider.
+// The header shrinks or disappears based on terminal height to prevent double
+// rendering when the user zooms in/out (always use tea.WithAltScreen).
+func (m *Model) renderFrame(content string) string {
+	var b strings.Builder
+
+	switch {
+	case m.Height == 0 || m.Height >= 28:
+		// Height 0 means we haven't received WindowSizeMsg yet — show full header.
+		b.WriteString(RenderHeader())
+	case m.Height >= 18:
+		b.WriteString(RenderHeaderCompact())
+		// Below 18: skip header entirely, maximise content space.
 	}
 
+	b.WriteString(m.renderStepNav())
+	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(m.Width))))
+	b.WriteString("\n\n")
+	b.WriteString(styles.Container.Render(content))
+	return b.String()
+}
+
+// dividerWidth returns the horizontal rule length clamped to terminal width.
+func dividerWidth(w int) int {
+	const max = splashLogoWidth + 4
+	if w <= 0 {
+		return max
+	}
+	n := w - 8
+	if n > max {
+		return max
+	}
+	if n < 20 {
+		return 20
+	}
+	return n
+}
+
+// renderStepNav renders the ① Project ── ② Architecture … bar.
+func (m *Model) renderStepNav() string {
+	current := m.stepIndex()
+	var b strings.Builder
+	b.WriteString("  ")
+	for i, step := range wizardSteps {
+		switch {
+		case i < current:
+			b.WriteString(styles.StepDone.Render("✓ " + step.label))
+		case i == current:
+			b.WriteString(styles.StepActive.Render(step.num + " " + step.label))
+		default:
+			b.WriteString(styles.StepPending.Render(step.num + " " + step.label))
+		}
+		if i < len(wizardSteps)-1 {
+			b.WriteString(styles.StepSep.Render("  ──  "))
+		}
+	}
+	b.WriteString("\n\n")
+	return b.String()
+}
+
+// stepIndex maps the current Step to the 0-based index into wizardSteps.
+func (m *Model) stepIndex() int {
 	switch m.Step {
-	case StepSplash:
-		return RenderSplashView()
-	case StepFolder:
-		return m.viewFolder()
-	case StepPackage:
-		return m.viewPackage()
+	case StepFolder, StepPackage:
+		return 0
 	case StepArch:
-		return m.viewArchitecture()
+		return 1
 	case StepDeps:
-		return m.renderDependencyView()
+		return 2
+	case StepReview:
+		return 3
 	}
+	return 0
+}
 
+// renderKeyHints renders a footer row of keyboard shortcut badges.
+func renderKeyHints(hints []keyHint) string {
+	parts := make([]string, 0, len(hints))
+	for _, h := range hints {
+		parts = append(parts, styles.KeyBadge.Render(h.key)+" "+styles.KeyHint.Render(h.action))
+	}
+	return strings.Join(parts, "   ") + "\n"
+}
+
+// errLine renders an inline validation error.
+func errLine(msg string) string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true).
+		Render("  ✗ "+msg) + "\n"
+}
+
+// ── Validation ────────────────────────────────────────────────────────────────
+
+// validateFolder returns a non-empty error string when the folder name is invalid.
+func validateFolder(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return "folder name cannot be empty"
+	}
+	for _, ch := range v {
+		if unicode.IsSpace(ch) || strings.ContainsRune(`/\:*?"<>|`, ch) {
+			return `no spaces or special characters ( / \ : * ? " < > | )`
+		}
+	}
 	return ""
 }
 
+// validateModulePath returns a non-empty error string when the module path is invalid.
+func validateModulePath(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return "module path cannot be empty"
+	}
+	if strings.ContainsAny(v, " \t\n") {
+		return "module path cannot contain spaces"
+	}
+	return ""
+}
+
+// ── Key handlers ──────────────────────────────────────────────────────────────
+
 func (m *Model) handleGlobalKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
-	switch msg.String() {
-	case "ctrl+c", "q":
+	if msg.String() == "ctrl+c" {
 		return tea.Quit, true
 	}
 	return nil, false
@@ -88,8 +242,6 @@ func (m *Model) handleGlobalKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 
 func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	switch m.Step {
-	case StepSplash:
-		return m.handleSplashKeys(msg)
 	case StepFolder:
 		return m.handleFolderKeys(msg)
 	case StepPackage:
@@ -98,45 +250,55 @@ func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return m.handleArchKeys(msg)
 	case StepDeps:
 		return m.handleDepsKeys(msg)
+	case StepReview:
+		return m.handleReviewKeys(msg)
 	}
 	return nil, false
 }
 
-func (m *Model) updateStep(msg tea.Msg) tea.Cmd {
+// updateInputs forwards non-key messages to the active textinput.
+func (m *Model) updateInputs(msg tea.Msg) tea.Cmd {
 	switch m.Step {
 	case StepFolder:
-		return m.updateFolderInput(msg)
+		var cmd tea.Cmd
+		m.FolderInput, cmd = m.FolderInput.Update(msg)
+		return cmd
 	case StepPackage:
-		return m.updatePackageInput(msg)
+		var cmd tea.Cmd
+		m.PkgInput, cmd = m.PkgInput.Update(msg)
+		return cmd
 	}
 	return nil
 }
 
-func (m *Model) handleSplashKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
-	if msg.String() == "enter" {
-		m.Step = StepFolder
-		m.FolderInput.Focus()
-		return nil, true
-	}
-	return nil, false
-}
-
 func (m *Model) handleFolderKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	if msg.String() == "enter" {
+		if e := validateFolder(m.FolderInput.Value()); e != "" {
+			m.FolderErr = e
+			return nil, true
+		}
+		m.FolderErr = ""
 		m.FolderInput.Blur()
 		m.PkgInput.Focus()
 		m.Step = StepPackage
 		return nil, true
 	}
+	m.FolderErr = "" // clear error on any other key
 	return nil, false
 }
 
 func (m *Model) handlePackageKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	if msg.String() == "enter" {
+		if e := validateModulePath(m.PkgInput.Value()); e != "" {
+			m.PkgErr = e
+			return nil, true
+		}
+		m.PkgErr = ""
 		m.PkgInput.Blur()
 		m.Step = StepArch
 		return nil, true
 	}
+	m.PkgErr = ""
 	return nil, false
 }
 
@@ -155,85 +317,279 @@ func (m *Model) handleArchKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	case "enter":
 		m.SelectedArch = m.ArchOptions[m.ArchCursor]
 		m.Step = StepDeps
+		m.Cursor = 0
 		return nil, true
+	case "q":
+		return tea.Quit, true
 	}
 	return nil, false
 }
 
 func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	// Search mode: most keys still work, printable chars go to query.
+	if m.SearchActive {
+		switch msg.String() {
+		case "esc":
+			m.SearchQuery = ""
+			m.SearchActive = false
+			m.clampCursor()
+			return nil, true
+		case "backspace":
+			if len(m.SearchQuery) > 0 {
+				runes := []rune(m.SearchQuery)
+				m.SearchQuery = string(runes[:len(runes)-1])
+				m.clampCursor()
+			}
+			return nil, true
+		case "up", "k":
+			if m.Cursor > 0 {
+				m.Cursor--
+			}
+			return nil, true
+		case "down", "j":
+			if m.Cursor < len(m.buildVisibleOrder())-1 {
+				m.Cursor++
+			}
+			return nil, true
+		case " ":
+			if idx := m.currentDepIndex(); idx >= 0 {
+				m.toggleDependency(idx)
+			}
+			return nil, true
+		case "enter":
+			m.SearchActive = false
+			m.Step = StepReview
+			return nil, true
+		default:
+			if len(msg.Runes) == 1 && unicode.IsPrint(msg.Runes[0]) {
+				m.SearchQuery += string(msg.Runes)
+				m.clampCursor()
+			}
+			return nil, true
+		}
+	}
+
+	// Normal mode.
 	switch msg.String() {
+	case "/":
+		m.SearchActive = true
+		return nil, true
+	case "esc":
+		if m.SearchQuery != "" {
+			m.SearchQuery = ""
+			m.clampCursor()
+		}
+		return nil, true
 	case "up", "k":
 		if m.Cursor > 0 {
 			m.Cursor--
 		}
 		return nil, true
 	case "down", "j":
-		if m.Cursor < len(m.Registry)-1 {
+		if m.Cursor < len(m.buildVisibleOrder())-1 {
 			m.Cursor++
 		}
 		return nil, true
 	case " ":
-		m.toggleDependency(m.Cursor)
+		if idx := m.currentDepIndex(); idx >= 0 {
+			m.toggleDependency(idx)
+		}
 		return nil, true
 	case "enter":
-		m.Done = true
+		m.Step = StepReview
+		return nil, true
+	case "q":
 		return tea.Quit, true
 	}
 	return nil, false
 }
 
-func (m *Model) updateFolderInput(msg tea.Msg) tea.Cmd {
-	var cmd tea.Cmd
-	m.FolderInput, cmd = m.FolderInput.Update(msg)
-	return cmd
+func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case "enter", "y":
+		m.Done = true
+		return tea.Quit, true
+	case "b":
+		m.Step = StepDeps
+		return nil, true
+	case "q":
+		return tea.Quit, true
+	}
+	return nil, false
 }
 
-func (m *Model) updatePackageInput(msg tea.Msg) tea.Cmd {
-	var cmd tea.Cmd
-	m.PkgInput, cmd = m.PkgInput.Update(msg)
-	return cmd
-}
-
-func (m *Model) toggleDependency(index int) {
-	if _, ok := m.Chosen[index]; ok {
-		delete(m.Chosen, index)
+// clampCursor ensures Cursor stays within the visible order after a search change.
+func (m *Model) clampCursor() {
+	order := m.buildVisibleOrder()
+	if len(order) == 0 {
+		m.Cursor = 0
 		return
 	}
-	// Keep the dependency metadata so downstream generators know what to install.
-	m.Chosen[index] = m.Registry[index]
+	if m.Cursor >= len(order) {
+		m.Cursor = len(order) - 1
+	}
 }
 
+func (m *Model) toggleDependency(registryIndex int) {
+	if _, ok := m.Chosen[registryIndex]; ok {
+		delete(m.Chosen, registryIndex)
+		return
+	}
+	m.Chosen[registryIndex] = m.Registry[registryIndex]
+}
+
+// currentDepIndex returns the Registry index of the highlighted dep, or -1.
+func (m *Model) currentDepIndex() int {
+	order := m.buildVisibleOrder()
+	if len(order) == 0 || m.Cursor >= len(order) {
+		return -1
+	}
+	return order[m.Cursor]
+}
+
+// ── Panel views ───────────────────────────────────────────────────────────────
+
 func (m *Model) viewFolder() string {
-	return fmt.Sprintf(
-		"📁 %s\n\n%s\n\n%s",
-		styles.Brand.Render("Folder Name:"),
-		m.FolderInput.View(),
-		"(Enter to continue)",
-	)
+	var b strings.Builder
+	b.WriteString(styles.PanelLabel.Render("FOLDER NAME") + "\n")
+	b.WriteString(styles.PanelHint.Render("Name of the project directory — no spaces") + "\n\n")
+	b.WriteString(styles.InputPrompt.Render("$ ") + m.FolderInput.View() + "\n")
+	if m.FolderErr != "" {
+		b.WriteString(errLine(m.FolderErr))
+	} else {
+		b.WriteString(styles.InputNote.Render("  will be created at ./<folder>/") + "\n")
+	}
+	b.WriteString("\n")
+	b.WriteString(renderKeyHints([]keyHint{{"enter", "next"}, {"ctrl+c", "quit"}}))
+	return b.String()
 }
 
 func (m *Model) viewPackage() string {
-	return fmt.Sprintf(
-		"📦 %s\n\n%s\n\n%s",
-		styles.Brand.Render("Package Name:"),
-		m.PkgInput.View(),
-		"(Enter to continue)",
-	)
+	folder := m.FolderInput.Value()
+	if folder == "" {
+		folder = "my-app"
+	}
+	var b strings.Builder
+	b.WriteString(styles.PanelLabel.Render("MODULE PATH") + "\n")
+	b.WriteString(styles.PanelHint.Render("Go module path written to go.mod — no spaces") + "\n\n")
+	b.WriteString(styles.InputPrompt.Render("$ ") + m.PkgInput.View() + "\n")
+	if m.PkgErr != "" {
+		b.WriteString(errLine(m.PkgErr))
+	} else {
+		b.WriteString(styles.InputNote.Render("  e.g. github.com/username/"+folder) + "\n")
+	}
+	b.WriteString("\n")
+	b.WriteString(renderKeyHints([]keyHint{{"enter", "next"}, {"ctrl+c", "quit"}}))
+	return b.String()
 }
 
 func (m *Model) viewArchitecture() string {
 	var b strings.Builder
-	b.WriteString("🏗️  " + styles.Brand.Render("Choose Architecture:") + "\n\n")
+	b.WriteString(styles.PanelLabel.Render("ARCHITECTURE") + "\n")
+	b.WriteString(styles.PanelHint.Render("Choose the project structure template") + "\n\n")
 
 	for i, opt := range m.ArchOptions {
-		cursor := "  "
-		if m.ArchCursor == i {
-			cursor = styles.Cursor.Render("> ")
-			b.WriteString(fmt.Sprintf("%s%s\n", cursor, styles.Selected.Render(opt)))
-			continue
+		isActive := m.ArchCursor == i
+		cursor := "   "
+		var name string
+		if isActive {
+			cursor = styles.Cursor.Render(" ▶ ")
+			name = styles.Selected.Render(opt)
+		} else {
+			name = styles.Name.Render(opt)
 		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, opt))
+		b.WriteString(fmt.Sprintf("%s%s\n", cursor, name))
+		b.WriteString(fmt.Sprintf("     %s\n\n", styles.Description.Render(archDescriptions[opt])))
 	}
 
+	b.WriteString(renderKeyHints([]keyHint{
+		{"↑↓ / jk", "navigate"},
+		{"enter", "select"},
+		{"q", "quit"},
+	}))
+	return b.String()
+}
+
+// viewReview renders a clean two-section summary before generation.
+func (m *Model) viewReview() string {
+	var b strings.Builder
+
+	b.WriteString(styles.PanelLabel.Render("REVIEW") + "\n")
+	b.WriteString(styles.PanelHint.Render("Confirm your configuration before scaffolding") + "\n\n")
+
+	folder := m.FolderInput.Value()
+	if folder == "" {
+		folder = "(not set)"
+	}
+	pkg := m.PkgInput.Value()
+	if pkg == "" {
+		pkg = "(not set)"
+	}
+	arch := m.SelectedArch
+	if arch == "" {
+		arch = "(not set)"
+	}
+
+	const keyW = 16
+	hr := styles.Divider.Render(strings.Repeat("─", 52)) + "\n"
+
+	summaryRow := func(key, value string, valStyle lipgloss.Style) string {
+		k := lipgloss.NewStyle().Foreground(colorMuted).Width(keyW).Render(key)
+		return fmt.Sprintf("  %s  %s\n", k, valStyle.Render(value))
+	}
+
+	b.WriteString(styles.Description.Render("  PROJECT") + "\n")
+	b.WriteString(hr)
+	b.WriteString(summaryRow("Folder", folder, styles.StepActive))
+	b.WriteString(summaryRow("Module", pkg, styles.StepActive))
+	b.WriteString(summaryRow("Architecture", arch, styles.Checkbox))
+	b.WriteString(summaryRow("Output", "./"+folder+"/", styles.StepPending))
+	b.WriteString("\n")
+
+	b.WriteString(styles.Description.Render("  DEPENDENCIES") + "\n")
+	b.WriteString(hr)
+
+	if len(m.Chosen) == 0 {
+		b.WriteString(fmt.Sprintf("  %s\n\n", styles.Description.Render("none selected")))
+	} else {
+		for _, group := range depGroups {
+			var hits []Dependency
+			for _, dep := range m.Chosen {
+				for _, cat := range group.categories {
+					if dep.Category == cat {
+						hits = append(hits, dep)
+						break
+					}
+				}
+			}
+			if len(hits) == 0 {
+				continue
+			}
+			b.WriteString(groupHeaderStyle.Render("  ▸ "+group.label) + "\n")
+			for _, dep := range hits {
+				badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
+				k := lipgloss.NewStyle().Foreground(colorText).Width(keyW + 2).Render(dep.Name)
+				b.WriteString(fmt.Sprintf("    %s %s  %s\n",
+					k, badge, styles.Description.Render(dep.ImportPath),
+				))
+			}
+			b.WriteRune('\n')
+		}
+	}
+
+	b.WriteString(hr)
+	b.WriteString(renderKeyHints([]keyHint{
+		{"enter / y", "generate"},
+		{"b", "back"},
+		{"q", "quit"},
+	}))
+	return b.String()
+}
+
+// viewDone is shown briefly before tea.Quit takes effect.
+func (m *Model) viewDone() string {
+	var b strings.Builder
+	b.WriteString(styles.Checkbox.Render("✔ Ready to scaffold!") + "\n\n")
+	b.WriteString(styles.Name.Render("  Generating "+m.SelectedArch+" project...") + "\n")
 	return b.String()
 }

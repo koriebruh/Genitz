@@ -1,13 +1,12 @@
 package tui
 
 import (
-	"os/exec"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
+// splashGradient is the color ramp applied row-by-row across the logo.
 var splashGradient = []string{
 	"#F5D0FE", "#F0ABFC", "#E879F9", "#D946EF",
 	"#C026D3", "#A855F7", "#9333EA", "#7C3AED",
@@ -25,31 +24,12 @@ var splashLogo = []string{
 	`  ░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░ ░░░░░   ░░░░░   ░░░░░░░░░   `,
 }
 
+// splashLogoWidth is the character width of each logo row, used for centering.
 const splashLogoWidth = 64
 
-var (
-	splashVersionLabel = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280")).
-				Italic(true)
-	splashVersionValue = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#22D3EE")).
-				Bold(true)
-	splashDivider = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#2D1B69"))
-	splashHint = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#374151"))
-	splashContainer = lipgloss.NewStyle().
-			Padding(1, 3)
-)
-
-func splashFetchGoVersion() string {
-	out, err := exec.Command("go", "version").Output()
-	if err != nil {
-		return "not found — make sure Go is installed"
-	}
-	return strings.TrimPrefix(strings.TrimSpace(string(out)), "go version ")
-}
-
+// splashRenderLogo renders the ASCII logo with a per-row color gradient.
+// Block characters (█) use the main ramp stop; shade characters (░) use
+// a slightly deeper stop for a subtle depth effect.
 func splashRenderLogo() string {
 	var sb strings.Builder
 	for i, row := range splashLogo {
@@ -75,6 +55,7 @@ func splashRenderLogo() string {
 	return sb.String()
 }
 
+// splashRenderTagline renders the centered stylized tagline below the logo.
 func splashRenderTagline() string {
 	type seg struct {
 		text  string
@@ -117,55 +98,27 @@ func splashRenderTagline() string {
 	return sb.String()
 }
 
-func splashRenderContent(goVersion string) string {
+// RenderHeader returns the full ASCII logo + tagline.
+// Used when terminal height >= 28.
+func RenderHeader() string {
 	var sb strings.Builder
 	sb.WriteString(splashRenderLogo())
 	sb.WriteString(splashRenderTagline())
-	sb.WriteString("\n" + splashDivider.Render(strings.Repeat("━", splashLogoWidth)) + "\n\n")
-	sb.WriteString(
-		splashVersionLabel.Render("  Go version  ") +
-			splashVersionValue.Render(goVersion) + "\n\n",
-	)
-	sb.WriteString(splashHint.Render("  q · esc · enter  continue") + "\n")
-	return splashContainer.Render(sb.String())
+	sb.WriteRune('\n')
+	return sb.String()
 }
 
-type splashModel struct {
-	goVersion string
-	ready     bool
-}
-
-type splashVersionMsg string
-
-func (m splashModel) Init() tea.Cmd {
-	return func() tea.Msg {
-		return splashVersionMsg(splashFetchGoVersion())
-	}
-}
-
-func (m splashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case splashVersionMsg:
-		m.goVersion = string(msg)
-		m.ready = true
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c", "esc", "enter":
-			return m, tea.Quit
-		}
-	}
-	return m, nil
-}
-
-func (m splashModel) View() string {
-	if !m.ready {
-		return "\n  Loading...\n"
-	}
-	return splashRenderContent(m.goVersion)
-}
-
-// RenderSplashView fetches the Go version and renders the splash screen.
-// Use this for non-interactive / static rendering contexts.
-func RenderSplashView() string {
-	return splashRenderContent(splashFetchGoVersion())
+// RenderHeaderCompact returns a single branded line without the ASCII art.
+// Used when terminal height is between 20–27.
+func RenderHeaderCompact() string {
+	brand := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#A855F7")).Bold(true).
+		Render("GENITZ")
+	sub := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6B7280")).
+		Render("  go project initializer · v0.1.0")
+	div := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#2D1B69")).
+		Render(strings.Repeat("━", splashLogoWidth))
+	return "  " + brand + sub + "\n" + div + "\n\n"
 }
