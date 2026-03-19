@@ -119,6 +119,35 @@ func GenerateNewProject(req Requirement) error {
 		return err
 	}
 
+	// Final cleanup: tidy first, then add mandatory env, then fmt
+	fmt.Println("✨ Finalizing project...")
+
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = targetPath
+	tidyCmd.Stdout = os.Stdout
+	tidyCmd.Stderr = os.Stderr
+	if err := tidyCmd.Run(); err != nil {
+		return fmt.Errorf("final tidy: %w", err)
+	}
+
+	// Install mandatory config dependency
+	fmt.Println("📦 Installing config loader...")
+	envCmd := exec.Command("go", "get", "github.com/caarlos0/env/v11")
+	envCmd.Dir = targetPath
+	envCmd.Stdout = os.Stdout
+	envCmd.Stderr = os.Stderr
+	if err := envCmd.Run(); err != nil {
+		return fmt.Errorf("install env dependency: %w", err)
+	}
+
+	fmtCmd := exec.Command("go", "fmt", "./...")
+	fmtCmd.Dir = targetPath
+	fmtCmd.Stdout = os.Stdout
+	fmtCmd.Stderr = os.Stderr
+	if err := fmtCmd.Run(); err != nil {
+		return fmt.Errorf("final fmt: %w", err)
+	}
+
 	fmt.Println("\n✅ Project scaffold complete! Happy hacking ✨")
 	return nil
 }

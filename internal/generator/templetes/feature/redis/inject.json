@@ -1,5 +1,5 @@
 {
   "target_dir": "config",
-  "config_field": "Fiber FiberConfig",
-  "config_init": "Fiber: LoadFiberConfig(),"
+  "config_field": "Redis RedisConfig",
+  "config_init": "Redis: LoadRedisConfig(),"
 }

@@ -4,55 +4,33 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
+	"github.com/caarlos0/env/v11"
 	"github.com/redis/go-redis/v9"
 )
 
 type RedisConfig struct {
-	Enabled      bool
-	Host         string
-	Port         string
-	Password     string
-	DB           int
-	PoolSize     int
-	MinIdleConns int
-	MaxRetries   int
-	DialTimeout  time.Duration
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	Enabled      bool          `env:"REDIS_ENABLED"    envDefault:"true"`
+	Host         string        `env:"REDIS_HOST"       envDefault:"localhost"`
+	Port         string        `env:"REDIS_PORT"       envDefault:"6379"`
+	Password     string        `env:"REDIS_PASSWORD"`
+	DB           int           `env:"REDIS_DB"         envDefault:"0"`
+	PoolSize     int           `env:"REDIS_POOL_SIZE"  envDefault:"10"`
+	MinIdleConns int           `env:"REDIS_MIN_IDLE"   envDefault:"2"`
+	MaxRetries   int           `env:"REDIS_MAX_RETRIES" envDefault:"3"`
+	DialTimeout  time.Duration `env:"REDIS_DIAL_TIMEOUT"  envDefault:"5s"`
+	ReadTimeout  time.Duration `env:"REDIS_READ_TIMEOUT"  envDefault:"3s"`
+	WriteTimeout time.Duration `env:"REDIS_WRITE_TIMEOUT" envDefault:"3s"`
 }
 
+// LoadRedisConfig loads RedisConfig from environment variables.
 func LoadRedisConfig() RedisConfig {
-	enabled, _ := strconv.ParseBool(getEnv("REDIS_ENABLED", "true"))
-	db, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
-	poolSize, _ := strconv.Atoi(getEnv("REDIS_POOL_SIZE", "10"))
-	minIdle, _ := strconv.Atoi(getEnv("REDIS_MIN_IDLE", "2"))
-	maxRetries, _ := strconv.Atoi(getEnv("REDIS_MAX_RETRIES", "3"))
-
-	return RedisConfig{
-		Enabled:      enabled,
-		Host:         getEnv("REDIS_HOST", "localhost"),
-		Port:         getEnv("REDIS_PORT", "6379"),
-		Password:     getEnv("REDIS_PASSWORD", ""),
-		DB:           db,
-		PoolSize:     poolSize,
-		MinIdleConns: minIdle,
-		MaxRetries:   maxRetries,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
+	cfg := RedisConfig{}
+	if err := env.Parse(&cfg); err != nil {
+		log.Fatalf("failed to load redis config: %v", err)
 	}
-}
-
-// Helper to read env with fallback
-func getEnv(key, fallback string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return fallback
+	return cfg
 }
 
 // RedisClient wraps redis.Client.
@@ -106,7 +84,9 @@ func (r *RedisClient) GetStats() *redis.PoolStats {
 	return r.Client.PoolStats()
 }
 
-// ─── Common Redis Operations ──────────────────────────────────────────────────
+// ─────────────────────────────────
+// Common Redis Operations
+// ─────────────────────────────────
 
 // Set sets a key-value pair with expiration.
 func (r *RedisClient) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
