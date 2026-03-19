@@ -70,12 +70,26 @@ type Dependency struct {
 	TemplateDir string
 }
 
+var depsPath = "internal/generator/templetes/feature/%s"
+
 var DependencyRegistry = []Dependency{
 	{
 		ID: "redis", Name: "redis", Category: CatCache,
 		ImportPath:  "github.com/redis/go-redis/v9",
 		Description: "redis client for Go",
-		TemplateDir: "internal/generator/templetes/feature/redis",
+		TemplateDir: fmt.Sprintf(depsPath, "redis"),
+	},
+	{
+		ID: "validator", Name: "go playground validator", Category: CatValidation,
+		ImportPath:  "github.com/go-playground/validator/v10",
+		Description: "Package validator implements value validations for structs and individual fields based on tags.",
+		TemplateDir: fmt.Sprintf(depsPath, "validator"),
+	},
+	{
+		ID: "fiber", Name: "Fiber", Category: CatFramework,
+		ImportPath:  "github.com/gofiber/fiber/v3",
+		Description: "Express inspired web framework written in Go",
+		TemplateDir: fmt.Sprintf(depsPath, "fiber"),
 	},
 	{
 		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
