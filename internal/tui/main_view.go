@@ -19,7 +19,7 @@ type Model struct {
 	SelectedArch string
 
 	Registry []Dependency
-	Chosen   map[int]struct{}
+	Chosen   map[int]Dependency
 	Cursor   int
 
 	Done bool
@@ -36,9 +36,9 @@ func InitialModel() *Model {
 		Step:        StepSplash,
 		FolderInput: f,
 		PkgInput:    p,
-		ArchOptions: []string{ArchStandard, ArchMicro, ArchClean, ArchDDD, ArchCLI},
+		ArchOptions: []string{ArchMicro, ArchClean},
 		Registry:    DependencyRegistry,
-		Chosen:      make(map[int]struct{}),
+		Chosen:      make(map[int]Dependency),
 	}
 }
 
@@ -199,7 +199,8 @@ func (m *Model) toggleDependency(index int) {
 		delete(m.Chosen, index)
 		return
 	}
-	m.Chosen[index] = struct{}{}
+	// Keep the dependency metadata so downstream generators know what to install.
+	m.Chosen[index] = m.Registry[index]
 }
 
 func (m *Model) viewFolder() string {

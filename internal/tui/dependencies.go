@@ -67,23 +67,33 @@ type Dependency struct {
 	IsDefault   bool
 	Requires    []string
 	Description string
+	TemplateDir string
 }
 
 var DependencyRegistry = []Dependency{
 	{
+		ID: "redis", Name: "redis", Category: CatCache,
+		ImportPath:  "github.com/redis/go-redis/v9",
+		Description: "redis client for Go",
+		TemplateDir: "internal/generator/templetes/feature/redis",
+	},
+	{
 		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
 		ImportPath:  "github.com/gin-gonic/gin",
 		Description: "High-performance HTTP web framework",
+		TemplateDir: "",
 	},
 	{
 		ID: "gorm", Name: "GORM", Category: CatORM,
 		ImportPath:  "gorm.io/gorm",
 		Description: "The fantastic ORM library for Golang",
+		TemplateDir: "",
 	},
 	{
 		ID: "zap", Name: "Uber Zap", Category: CatLogger,
 		ImportPath:  "go.uber.org/zap",
 		Description: "Blazing fast, structured, leveled logging",
+		TemplateDir: "",
 	},
 }
 

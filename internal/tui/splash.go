@@ -29,17 +29,17 @@ const splashLogoWidth = 64
 
 var (
 	splashVersionLabel = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
-		Italic(true)
+				Foreground(lipgloss.Color("#6B7280")).
+				Italic(true)
 	splashVersionValue = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#22D3EE")).
-		Bold(true)
+				Foreground(lipgloss.Color("#22D3EE")).
+				Bold(true)
 	splashDivider = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#2D1B69"))
+			Foreground(lipgloss.Color("#2D1B69"))
 	splashHint = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#374151"))
+			Foreground(lipgloss.Color("#374151"))
 	splashContainer = lipgloss.NewStyle().
-		Padding(1, 3)
+			Padding(1, 3)
 )
 
 func splashFetchGoVersion() string {

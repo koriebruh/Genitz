@@ -8,6 +8,12 @@ const (
 	ArchCLI      = "CLI Tool"
 )
 
+type Architecture struct {
+	Name        string
+	Description string
+	TemplateDir string
+}
+
 type Step int
 
 const (
