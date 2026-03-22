@@ -2,16 +2,19 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Color palette — consistent across all panels.
+// ── Neon Midnight Palette ─────────────────────────────────────────────────────
+// A high-contrast dark theme: violet brand, sky-blue accents, emerald success.
 var (
-	colorPrimary  = lipgloss.Color("#A855F7") // purple  — brand
-	colorAccent   = lipgloss.Color("#22D3EE") // cyan    — active / selected
-	colorDone     = lipgloss.Color("#10B981") // green   — completed / checked
-	colorMuted    = lipgloss.Color("#6B7280") // gray    — hints / descriptions
-	colorText     = lipgloss.Color("#E5E7EB") // white   — primary text
-	colorSelected = lipgloss.Color("#F0ABFC") // pink    — cursor highlight
-	colorDivider  = lipgloss.Color("#2D1B69") // indigo  — dividers / step sep
-	colorDark     = lipgloss.Color("#1F2937") // dark    — key badge bg
+	colorBrand     = lipgloss.Color("#8B5CF6") // violet     — brand identity
+	colorAccent    = lipgloss.Color("#38BDF8") // sky-blue   — active / highlight
+	colorHighlight = lipgloss.Color("#C084FC") // lavender   — cursor / selected
+	colorDone      = lipgloss.Color("#34D399") // emerald    — completed / checked
+	colorText      = lipgloss.Color("#F1F5F9") // near-white — primary text
+	colorMuted     = lipgloss.Color("#64748B") // slate-500  — hints / meta
+	colorSubtle    = lipgloss.Color("#94A3B8") // slate-400  — descriptions
+	colorDivider   = lipgloss.Color("#334155") // slate-700  — visible dividers
+	colorSurface   = lipgloss.Color("#1E293B") // slate-900  — badge / pill bg
+	colorSelected  = lipgloss.Color("#E879F9") // fuchsia    — selected item
 )
 
 // uiStyles groups all Lipgloss styles used in the TUI.
@@ -32,7 +35,7 @@ type uiStyles struct {
 	StepPending lipgloss.Style
 	StepSep     lipgloss.Style
 
-	// Panel sections
+	// Panel sections — PanelLabel has a violet left-border accent
 	PanelLabel lipgloss.Style
 	PanelHint  lipgloss.Style
 
@@ -53,32 +56,50 @@ var styles = newUIStyles()
 
 func newUIStyles() uiStyles {
 	return uiStyles{
-		Brand:       lipgloss.NewStyle().Foreground(colorPrimary).Bold(true),
+		Brand:       lipgloss.NewStyle().Foreground(colorBrand).Bold(true),
 		Name:        lipgloss.NewStyle().Foreground(colorText).Bold(true),
 		Selected:    lipgloss.NewStyle().Foreground(colorSelected).Bold(true),
-		Description: lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
+		Description: lipgloss.NewStyle().Foreground(colorSubtle).Italic(true),
 
 		Cursor:   lipgloss.NewStyle().Foreground(colorAccent).Bold(true),
 		Checkbox: lipgloss.NewStyle().Foreground(colorDone).Bold(true),
 
-		StepActive:  lipgloss.NewStyle().Foreground(colorAccent).Bold(true),
-		StepDone:    lipgloss.NewStyle().Foreground(colorDone),
+		// Active step: sky-blue pill (dark text on bright bg)
+		StepActive: lipgloss.NewStyle().
+			Foreground(colorSurface).
+			Background(colorAccent).
+			Bold(true).
+			Padding(0, 1),
+		// Done step: emerald text
+		StepDone: lipgloss.NewStyle().Foreground(colorDone),
+		// Pending step: muted slate
 		StepPending: lipgloss.NewStyle().Foreground(colorMuted),
-		StepSep:     lipgloss.NewStyle().Foreground(colorDivider),
+		// Separator arrow between steps
+		StepSep: lipgloss.NewStyle().Foreground(colorDivider),
 
-		PanelLabel: lipgloss.NewStyle().Foreground(colorAccent).Bold(true),
-		PanelHint:  lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
+		// Panel label with a violet left-border accent bar
+		PanelLabel: lipgloss.NewStyle().
+			Foreground(colorAccent).
+			Bold(true).
+			Border(lipgloss.ThickBorder(), false, false, false, true).
+			BorderForeground(colorBrand).
+			PaddingLeft(1),
+		PanelHint: lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
 
 		InputPrompt: lipgloss.NewStyle().Foreground(colorDone).Bold(true),
 		InputNote:   lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
 
+		// Key badges: look like physical keyboard keys
 		KeyBadge: lipgloss.NewStyle().
 			Foreground(colorAccent).
-			Background(colorDark).
+			Background(colorSurface).
+			Bold(true).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorDivider).
 			Padding(0, 1),
 		KeyHint: lipgloss.NewStyle().Foreground(colorMuted),
 
 		Divider:   lipgloss.NewStyle().Foreground(colorDivider),
-		Container: lipgloss.NewStyle().Padding(0, 3),
+		Container: lipgloss.NewStyle().Padding(0, 4),
 	}
 }

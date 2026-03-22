@@ -1,0 +1,44 @@
+APP_NAME={{.ProjectName}}
+BUILD_DIR=bin
+MAIN=./cmd/main.go
+
+.PHONY: all build run test clean dev lint tidy
+
+all: build
+
+## build: compile binary to bin/
+build:
+	go build -o $(BUILD_DIR)/$(APP_NAME) $(MAIN)
+
+## run: run without compiling binary
+run:
+	go run $(MAIN)
+
+## dev: run with hot-reload (requires air: go install github.com/air-verse/air@latest)
+dev:
+	air
+
+## test: run all tests
+test:
+	go test -v -race ./...
+
+## lint: run golangci-lint (requires golangci-lint installed)
+lint:
+	golangci-lint run ./...
+
+## tidy: clean up go.mod and go.sum
+tidy:
+	go mod tidy
+
+## clean: remove build artifacts
+clean:
+	go clean
+	-rmdir /s /q $(BUILD_DIR) 2>nul || true
+
+## help: show this help message
+help:
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+	@echo ""

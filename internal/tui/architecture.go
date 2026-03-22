@@ -26,6 +26,13 @@ const (
 	StepReview
 )
 
+// AvailableArchitectures is the set of architecture names that have a complete
+// template. Unlisted names will be shown as "coming soon" in the TUI.
+var AvailableArchitectures = map[string]bool{
+	ArchMicro: true,
+	ArchClean: true,
+}
+
 // archDescriptions maps each architecture name to a short description
 // shown below the option in the architecture selection panel.
 var archDescriptions = map[string]string{

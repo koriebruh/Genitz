@@ -43,6 +43,7 @@ type Model struct {
 	// Cursor is the visual position inside the buildVisibleOrder slice,
 	// NOT a raw Registry index. Use currentDepIndex() to get the registry index.
 	Cursor       int
+	DepsOffset   int // first visible item index for scrollable dep list
 	SearchQuery  string
 	SearchActive bool
 
@@ -124,16 +125,29 @@ func (m *Model) renderFrame(content string) string {
 	switch {
 	case m.Height == 0 || m.Height >= 28:
 		// Height 0 means we haven't received WindowSizeMsg yet — show full header.
-		b.WriteString(RenderHeader())
+		b.WriteString(RenderHeader(m.Width))
 	case m.Height >= 18:
 		b.WriteString(RenderHeaderCompact())
 		// Below 18: skip header entirely, maximise content space.
 	}
 
 	b.WriteString(m.renderStepNav())
-	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(m.Width))))
+
+	// Full-width divider
+	dw := dividerWidth(m.Width)
+	b.WriteString(styles.Divider.Render(strings.Repeat("━", dw)))
 	b.WriteString("\n\n")
-	b.WriteString(styles.Container.Render(content))
+
+	// Render content at full usable width so panels feel immersive.
+	usableW := m.Width - 10
+	if usableW < 60 || m.Width == 0 {
+		usableW = 0 // let lipgloss use natural width when terminal size unknown
+	}
+	containerStyle := styles.Container
+	if usableW > 0 {
+		containerStyle = containerStyle.Width(usableW)
+	}
+	b.WriteString(containerStyle.Render(content))
 	return b.String()
 }
 
@@ -153,7 +167,9 @@ func dividerWidth(w int) int {
 	return n
 }
 
-// renderStepNav renders the ① Project ── ② Architecture … bar.
+// renderStepNav renders the step progress bar.
+// Done steps show ✔ in emerald; the active step is a sky-blue pill;
+// pending steps are muted.
 func (m *Model) renderStepNav() string {
 	current := m.stepIndex()
 	var b strings.Builder
@@ -161,14 +177,15 @@ func (m *Model) renderStepNav() string {
 	for i, step := range wizardSteps {
 		switch {
 		case i < current:
-			b.WriteString(styles.StepDone.Render("✓ " + step.label))
+			b.WriteString(styles.StepDone.Render("✔ " + step.label))
 		case i == current:
-			b.WriteString(styles.StepActive.Render(step.num + " " + step.label))
+			// Active step: rendered as a filled pill for clear focus
+			b.WriteString(styles.StepActive.Render(" " + step.num + " " + step.label + " "))
 		default:
-			b.WriteString(styles.StepPending.Render(step.num + " " + step.label))
+			b.WriteString(styles.StepPending.Render("  " + step.label))
 		}
 		if i < len(wizardSteps)-1 {
-			b.WriteString(styles.StepSep.Render("  ──  "))
+			b.WriteString(styles.StepSep.Render("  ›  "))
 		}
 	}
 	b.WriteString("\n\n")
@@ -315,6 +332,10 @@ func (m *Model) handleArchKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "enter":
+		// Block selection of templates that are not yet implemented.
+		if !AvailableArchitectures[m.ArchOptions[m.ArchCursor]] {
+			return nil, true // consume key, message already shown in view
+		}
 		m.SelectedArch = m.ArchOptions[m.ArchCursor]
 		m.Step = StepDeps
 		m.Cursor = 0
@@ -345,11 +366,13 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 			if m.Cursor > 0 {
 				m.Cursor--
 			}
+			m.syncDepsOffset()
 			return nil, true
 		case "down", "j":
 			if m.Cursor < len(m.buildVisibleOrder())-1 {
 				m.Cursor++
 			}
+			m.syncDepsOffset()
 			return nil, true
 		case " ":
 			if idx := m.currentDepIndex(); idx >= 0 {
@@ -384,6 +407,7 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		if m.Cursor > 0 {
 			m.Cursor--
 		}
+		m.syncDepsOffset()
 		return nil, true
 	case "down", "j":
 		if m.Cursor < len(m.buildVisibleOrder())-1 {
@@ -418,15 +442,54 @@ func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// clampCursor ensures Cursor stays within the visible order after a search change.
+// clampCursor ensures Cursor stays within the visible order after a search change,
+// then syncs the scroll offset so the cursor stays visible.
 func (m *Model) clampCursor() {
 	order := m.buildVisibleOrder()
 	if len(order) == 0 {
 		m.Cursor = 0
+		m.DepsOffset = 0
 		return
 	}
 	if m.Cursor >= len(order) {
 		m.Cursor = len(order) - 1
+	}
+	m.syncDepsOffset()
+}
+
+// depsMaxVisible returns how many dependency rows fit on-screen at once.
+func (m *Model) depsMaxVisible() int {
+	if m.Height == 0 {
+		return 10 // fallback before first WindowSizeMsg
+	}
+	// Fixed rows: header(0-10) + step nav(2) + divider(2) + panel header(4) + search(2) + footer(2)
+	fixed := 14
+	if m.Height >= 28 {
+		fixed += 10 // full logo
+	} else if m.Height >= 18 {
+		fixed += 2 // compact header
+	}
+	avail := m.Height - fixed
+	if avail < 2 {
+		return 2
+	}
+	return avail / 2 // each item occupies 2 lines (name + description)
+}
+
+// syncDepsOffset adjusts DepsOffset so the cursor is always visible.
+func (m *Model) syncDepsOffset() {
+	maxVis := m.depsMaxVisible()
+	if maxVis <= 0 {
+		return
+	}
+	if m.Cursor < m.DepsOffset {
+		m.DepsOffset = m.Cursor
+	}
+	if m.Cursor >= m.DepsOffset+maxVis {
+		m.DepsOffset = m.Cursor - maxVis + 1
+	}
+	if m.DepsOffset < 0 {
+		m.DepsOffset = 0
 	}
 }
 
@@ -490,16 +553,41 @@ func (m *Model) viewArchitecture() string {
 
 	for i, opt := range m.ArchOptions {
 		isActive := m.ArchCursor == i
+		available := AvailableArchitectures[opt]
+
 		cursor := "   "
 		var name string
-		if isActive {
+		switch {
+		case isActive && available:
 			cursor = styles.Cursor.Render(" ▶ ")
 			name = styles.Selected.Render(opt)
-		} else {
-			name = styles.Name.Render(opt)
+		case isActive && !available:
+			cursor = styles.Cursor.Render(" ▶ ")
+			name = styles.StepPending.Render(opt)
+		default:
+			if available {
+				name = styles.Name.Render(opt)
+			} else {
+				name = styles.StepPending.Render(opt)
+			}
 		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, name))
+
+		var badge string
+		if !available {
+			badge = " " + lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#6B7280")).
+				Background(lipgloss.Color("#1F2937")).
+				Padding(0, 1).
+				Render("coming soon")
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s%s\n", cursor, name, badge))
 		b.WriteString(fmt.Sprintf("     %s\n\n", styles.Description.Render(archDescriptions[opt])))
+	}
+
+	if !AvailableArchitectures[m.ArchOptions[m.ArchCursor]] {
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Italic(true).
+			Render("  This template is not yet available, please choose another.") + "\n\n")
 	}
 
 	b.WriteString(renderKeyHints([]keyHint{

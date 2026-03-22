@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,18 +16,19 @@ import (
 	"github.com/koriebruh/Genitz/internal/tui"
 )
 
-const templateRoot = "internal/generator/templetes"
+// templateRoot is the path prefix inside templatesFS.
+const templateRoot = "templates"
 
 var architectureCatalog = map[string]tui.Architecture{
 	tui.ArchMicro: {
 		Name:        tui.ArchMicro,
 		Description: "Service-per-domain layout with shared pkg folder",
-		TemplateDir: filepath.Join(templateRoot, "architecture", "microservice"),
+		TemplateDir: templateRoot + "/architecture/microservice",
 	},
 	tui.ArchClean: {
 		Name:        tui.ArchClean,
 		Description: "Layered clean architecture with adapters/core split",
-		TemplateDir: filepath.Join(templateRoot, "architecture", "clean-architecture"),
+		TemplateDir: templateRoot + "/architecture/clean-architecture",
 	},
 }
 
@@ -107,6 +109,10 @@ func GenerateNewProject(req Requirement) error {
 		return err
 	}
 
+	if err := generateProjectFiles(targetPath, req); err != nil {
+		return err
+	}
+
 	if err := initGoModule(targetPath, req.PackageName); err != nil {
 		return err
 	}
@@ -182,10 +188,27 @@ func resolveArchitecture(name string) (tui.Architecture, error) {
 	return arch, nil
 }
 
+// ArchitectureAvailable reports whether an architecture name has a template.
+func ArchitectureAvailable(name string) bool {
+	_, ok := architectureCatalog[name]
+	return ok
+}
+
 type FeatureInjection struct {
 	TargetDir   string `json:"target_dir"`   // e.g. "config"
 	ConfigField string `json:"config_field"` // e.g. "Redis RedisConfig"
 	ConfigInit  string `json:"config_init"`  // e.g. "Redis: LoadRedisConfig(),"
+}
+
+// titleCase capitalises only the first letter of a string.
+// Replaces the deprecated strings.Title.
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = []rune(strings.ToUpper(string(r[0])))[0]
+	return string(r)
 }
 
 func enrichConfigData(req Requirement, data map[string]any) {
@@ -197,11 +220,10 @@ func enrichConfigData(req Requirement, data map[string]any) {
 			continue
 		}
 
-		// Try to read inject.json from template dir
-		injectFile := filepath.Join(dep.TemplateDir, "inject.json")
-		content, err := os.ReadFile(injectFile)
+		// Read inject.json from embedded FS
+		injectFile := dep.TemplateDir + "/inject.json"
+		content, err := templatesFS.ReadFile(injectFile)
 		if err != nil {
-			// If file doesn't exist, skip injection
 			continue
 		}
 
@@ -224,10 +246,10 @@ func enrichConfigData(req Requirement, data map[string]any) {
 }
 
 func generateConfigFile(target string, data map[string]any) error {
-	src := filepath.Join(templateRoot, "feature", "config.go.templete")
+	src := templateRoot + "/feature/config.go.templete"
 	dest := filepath.Join(target, "config", "config.go")
 	fmt.Printf("🔧 Generating config: %s\n", dest)
-	return renderTemplateFile(src, dest, data)
+	return renderTemplateFromEmbed(src, dest, data)
 }
 
 func ensureFreshProjectDir(path string) error {
@@ -241,16 +263,8 @@ func ensureFreshProjectDir(path string) error {
 
 func copyArchitectureTemplate(req Requirement, target string, data map[string]any) error {
 	src := req.Arch.TemplateDir
-	if !filepath.IsAbs(src) {
-		abs, err := filepath.Abs(src)
-		if err != nil {
-			return fmt.Errorf("resolve architecture template: %w", err)
-		}
-		src = abs
-	}
-
 	fmt.Printf("🏗️  Applying architecture template: %s\n", req.Arch.Name)
-	return copyDirWithTemplates(src, target, data)
+	return copyDirFromEmbed(src, target, data)
 }
 
 func applyDependencyTemplates(target string, req Requirement, data map[string]any) error {
@@ -259,19 +273,10 @@ func applyDependencyTemplates(target string, req Requirement, data map[string]an
 			continue
 		}
 
-		src := dep.TemplateDir
-		if !filepath.IsAbs(src) {
-			abs, err := filepath.Abs(src)
-			if err != nil {
-				return fmt.Errorf("resolve dependency template for %s: %w", dep.Name, err)
-			}
-			src = abs
-		}
-
 		// Determine destination from inject.json if available
 		relDest := "internal/features/" + dep.ID
-		injectFile := filepath.Join(src, "inject.json")
-		if content, err := os.ReadFile(injectFile); err == nil {
+		injectFile := dep.TemplateDir + "/inject.json"
+		if content, err := templatesFS.ReadFile(injectFile); err == nil {
 			var inject FeatureInjection
 			if json.Unmarshal(content, &inject) == nil && inject.TargetDir != "" {
 				relDest = inject.TargetDir
@@ -280,8 +285,44 @@ func applyDependencyTemplates(target string, req Requirement, data map[string]an
 
 		dest := filepath.Join(target, relDest)
 		fmt.Printf("📦 Injecting feature template: %s -> %s\n", dep.Name, dest)
-		if err := copyDirWithTemplates(src, dest, data); err != nil {
+		if err := copyDirFromEmbed(dep.TemplateDir, dest, data); err != nil {
 			return fmt.Errorf("copy dependency template %s: %w", dep.Name, err)
+		}
+	}
+	return nil
+}
+
+// generateProjectFiles writes standard project files (README, .gitignore, Makefile)
+// that every scaffold should include.
+func generateProjectFiles(target string, req Requirement) error {
+	fmt.Println("📝 Generating project files (README, .gitignore, Makefile)...")
+
+	data := newTemplateData(req)
+
+	files := []struct {
+		tmplPath string
+		destPath string
+	}{
+		{templateRoot + "/project/README.md.templete", filepath.Join(target, "README.md")},
+		{templateRoot + "/project/.gitignore", filepath.Join(target, ".gitignore")},
+		{templateRoot + "/project/Makefile.templete", filepath.Join(target, "Makefile")},
+		{templateRoot + "/project/.air.toml", filepath.Join(target, ".air.toml")},
+	}
+
+	for _, f := range files {
+		content, err := templatesFS.ReadFile(f.tmplPath)
+		if err != nil {
+			// skip optional files that don't exist yet
+			continue
+		}
+		if strings.HasSuffix(f.tmplPath, ".templete") {
+			if err := renderTemplateFromEmbed(f.tmplPath, f.destPath, data); err != nil {
+				return fmt.Errorf("generate %s: %w", filepath.Base(f.destPath), err)
+			}
+		} else {
+			if err := os.WriteFile(f.destPath, content, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", filepath.Base(f.destPath), err)
+			}
 		}
 	}
 	return nil
@@ -355,13 +396,13 @@ func mergeEnvFiles(target string, req Requirement) error {
 			continue
 		}
 
-		srcEnv := filepath.Join(dep.TemplateDir, ".env")
-		content, err := os.ReadFile(srcEnv)
+		srcEnv := dep.TemplateDir + "/.env"
+		content, err := templatesFS.ReadFile(srcEnv)
 		if err != nil {
-			continue // Skip if no .env
+			continue // Skip if no .env in embedded FS
 		}
 
-		envContent += fmt.Sprintf("\n# %s Configuration\n", strings.Title(dep.Name))
+		envContent += fmt.Sprintf("\n# %s Configuration\n", titleCase(dep.Name))
 
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
@@ -384,49 +425,52 @@ func mergeEnvFiles(target string, req Requirement) error {
 	return os.WriteFile(envPath, []byte(envContent), 0644)
 }
 
-func copyDirWithTemplates(src, dest string, data map[string]any) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+// copyDirFromEmbed copies a directory from the embedded FS to the filesystem.
+func copyDirFromEmbed(src, dest string, data map[string]any) error {
+	return fs.WalkDir(templatesFS, src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// Skip inject.json and .env files from being copied to final project
-		if info.Name() == "inject.json" || info.Name() == ".env" {
+		if d.Name() == "inject.json" || d.Name() == ".env" {
 			return nil
 		}
 
-		rel, err := filepath.Rel(src, path)
+		rel, err := filepath.Rel(filepath.FromSlash(src), filepath.FromSlash(path))
 		if err != nil {
 			return err
 		}
 
 		targetPath := filepath.Join(dest, rel)
 
-		if info.IsDir() {
+		if d.IsDir() {
 			return os.MkdirAll(targetPath, 0o755)
 		}
 
-		if strings.HasSuffix(info.Name(), ".templete") {
+		if strings.HasSuffix(d.Name(), ".templete") {
 			trimmed := strings.TrimSuffix(targetPath, ".templete")
-			return renderTemplateFile(path, trimmed, data)
+			return renderTemplateFromEmbed(path, trimmed, data)
 		}
 
-		return copyFile(path, targetPath)
+		return copyFileFromEmbed(path, targetPath)
 	})
 }
 
-func renderTemplateFile(src, dest string, data map[string]any) error {
-	content, err := os.ReadFile(src)
+// renderTemplateFromEmbed reads a template from the embedded FS and renders it to dest.
+func renderTemplateFromEmbed(src, dest string, data map[string]any) error {
+	content, err := templatesFS.ReadFile(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("read embedded template %s: %w", src, err)
 	}
 
 	tmpl, err := template.New(filepath.Base(src)).Funcs(template.FuncMap{
 		"ToLower": strings.ToLower,
 		"ToUpper": strings.ToUpper,
+		"Title":   titleCase,
 	}).Parse(string(content))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse template %s: %w", src, err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -442,16 +486,16 @@ func renderTemplateFile(src, dest string, data map[string]any) error {
 	return tmpl.Execute(out, data)
 }
 
-func copyFile(src, dest string) error {
+// copyFileFromEmbed copies a single file from the embedded FS to the filesystem.
+func copyFileFromEmbed(src, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
 
-	in, err := os.Open(src)
+	content, err := templatesFS.ReadFile(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("read embedded file %s: %w", src, err)
 	}
-	defer in.Close()
 
 	out, err := os.Create(dest)
 	if err != nil {
@@ -459,11 +503,8 @@ func copyFile(src, dest string) error {
 	}
 	defer out.Close()
 
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-
-	return out.Close()
+	_, err = io.WriteString(out, string(content))
+	return err
 }
 
 func newTemplateData(req Requirement) map[string]any {

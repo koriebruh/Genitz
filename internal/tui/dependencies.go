@@ -72,18 +72,19 @@ type Dependency struct {
 	TemplateDir string
 }
 
-var depsPath = "internal/generator/templetes/feature/%s"
+// depsPath is the path prefix inside the embedded templates FS (see generator/embed.go).
+var depsPath = "templates/feature/%s"
 
 // DependencyRegistry is the list of selectable dependencies shown in StepDeps.
 var DependencyRegistry = []Dependency{
 	{
-		ID: "redis", Name: "redis", Category: CatCache,
+		ID: "redis", Name: "Redis", Category: CatCache,
 		ImportPath:  "github.com/redis/go-redis/v9",
 		Description: "Redis client for Go",
 		TemplateDir: fmt.Sprintf(depsPath, "redis"),
 	},
 	{
-		ID: "validator", Name: "go playground validator", Category: CatValidation,
+		ID: "validator", Name: "Go Playground Validator", Category: CatValidation,
 		ImportPath:  "github.com/go-playground/validator/v10",
 		Description: "Struct and field validation via struct tags",
 		TemplateDir: fmt.Sprintf(depsPath, "validator"),
@@ -98,21 +99,22 @@ var DependencyRegistry = []Dependency{
 		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
 		ImportPath:  "github.com/gin-gonic/gin",
 		Description: "High-performance HTTP web framework",
-		TemplateDir: "",
+		TemplateDir: fmt.Sprintf(depsPath, "gin"),
 	},
 	{
 		ID: "gorm", Name: "GORM", Category: CatORM,
 		ImportPath:  "gorm.io/gorm",
 		Description: "The fantastic ORM library for Golang",
-		TemplateDir: "",
+		TemplateDir: fmt.Sprintf(depsPath, "gorm"),
 	},
 	{
 		ID: "zap", Name: "Uber Zap", Category: CatLogger,
 		ImportPath:  "go.uber.org/zap",
 		Description: "Blazing fast, structured, leveled logging",
-		TemplateDir: "",
+		TemplateDir: fmt.Sprintf(depsPath, "zap"),
 	},
 }
+
 
 // depGroups defines the display order and category membership for each group.
 var depGroups = []struct {
@@ -164,16 +166,28 @@ func (m *Model) buildVisibleOrder() []int {
 	return order
 }
 
-// renderDependencyView renders the StepDeps panel body grouped by category.
-// Navigation cursor tracks visual position via buildVisibleOrder, so it never
-// jumps across group boundaries.
+// findDepGroup returns the display label of the group a dependency belongs to.
+func findDepGroup(dep Dependency) string {
+	for _, group := range depGroups {
+		for _, cat := range group.categories {
+			if dep.Category == cat {
+				return group.label
+			}
+		}
+	}
+	return "Other"
+}
+
+// renderDependencyView renders the StepDeps panel body with scroll support.
+// Only (depsMaxVisible) items are rendered at once; scroll indicators show
+// how many items are hidden above/below.
 func (m *Model) renderDependencyView() string {
 	var b strings.Builder
 
 	b.WriteString(styles.PanelLabel.Render("DEPENDENCIES") + "\n")
-	b.WriteString(styles.PanelHint.Render("Toggle packages, then press enter to review") + "\n\n")
+	b.WriteString(styles.PanelHint.Render("Toggle with space · enter to review · / to search") + "\n\n")
 
-	// ── Search bar ────────────────────────────────────────────
+	// ── Search bar ────────────────────────────────────────────────────────────
 	if m.SearchActive || m.SearchQuery != "" {
 		indicator := styles.Description.Render("/")
 		query := styles.Selected.Render(m.SearchQuery)
@@ -191,59 +205,76 @@ func (m *Model) renderDependencyView() string {
 	if len(visibleOrder) == 0 {
 		b.WriteString(styles.Description.Render("  no results for \""+m.SearchQuery+"\"") + "\n\n")
 	} else {
-		// Track visual position across all items for cursor matching.
-		visualPos := 0
-
-		for _, group := range depGroups {
-			// Collect visible indices that belong to this group, in order.
-			var groupIndices []int
-			for _, idx := range visibleOrder {
-				dep := m.Registry[idx]
-				for _, cat := range group.categories {
-					if dep.Category == cat {
-						groupIndices = append(groupIndices, idx)
-						break
-					}
-				}
-			}
-			if len(groupIndices) == 0 {
-				continue
-			}
-
-			b.WriteString(groupHeaderStyle.Render("▸ "+group.label) + "\n")
-
-			for _, i := range groupIndices {
-				dep := m.Registry[i]
-				isActive := m.Cursor == visualPos
-
-				cursor := "   "
-				if isActive {
-					cursor = styles.Cursor.Render(" ▶ ")
-				}
-
-				_, chosen := m.Chosen[i]
-				check := styles.Description.Render("[ ] ")
-				if chosen {
-					check = styles.Checkbox.Render("[✓] ")
-				}
-
-				name := styles.Name.Render(dep.Name)
-				if isActive {
-					name = styles.Selected.Render(dep.Name)
-				}
-
-				badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
-
-				b.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, check, name, badge))
-				b.WriteString(fmt.Sprintf("      %s\n", styles.Description.Render(dep.Description)))
-
-				visualPos++
-			}
-
-			b.WriteRune('\n')
+		maxVis := m.depsMaxVisible()
+		start := m.DepsOffset
+		if start >= len(visibleOrder) {
+			start = 0
 		}
+		end := start + maxVis
+		if end > len(visibleOrder) {
+			end = len(visibleOrder)
+		}
+
+		// ── Scroll up indicator ───────────────────────────────────────────────
+		if start > 0 {
+			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Italic(true).
+				Render(fmt.Sprintf("  ↑ %d more above", start)) + "\n")
+		}
+
+		// ── Render visible window of items ────────────────────────────────────
+		prevGroup := ""
+		for pos := start; pos < end; pos++ {
+			idx := visibleOrder[pos]
+			dep := m.Registry[idx]
+
+			// Insert group header when the group changes within the visible window
+			depGroup := findDepGroup(dep)
+			if depGroup != prevGroup {
+				if pos > start {
+					b.WriteRune('\n')
+				}
+				b.WriteString(groupHeaderStyle.Render("  ▸ "+depGroup) + "\n")
+				prevGroup = depGroup
+			}
+
+			isActive := m.Cursor == pos
+
+			cursor := "   "
+			if isActive {
+				cursor = styles.Cursor.Render(" ▶ ")
+			}
+
+			_, chosen := m.Chosen[idx]
+			check := styles.Description.Render("[ ] ")
+			if chosen {
+				check = styles.Checkbox.Render("[✓] ")
+			}
+
+			name := styles.Name.Render(dep.Name)
+			if isActive {
+				name = styles.Selected.Render(dep.Name)
+			}
+
+			badge := getBadgeStyle(dep.Category).Render(strings.ToUpper(dep.Category))
+
+			b.WriteString(fmt.Sprintf("%s%s%s%s\n", cursor, check, name, badge))
+			b.WriteString(fmt.Sprintf("      %s\n",
+				styles.Description.Render(dep.Description)))
+		}
+
+		// ── Scroll down indicator ─────────────────────────────────────────────
+		if end < len(visibleOrder) {
+			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Italic(true).
+				Render(fmt.Sprintf("  ↓ %d more below", len(visibleOrder)-end)) + "\n")
+		}
+
+		// ── Item counter ──────────────────────────────────────────────────────
+		counter := fmt.Sprintf("  %d/%d  ·  %d selected",
+			m.Cursor+1, len(visibleOrder), len(m.Chosen))
+		b.WriteString("\n" + lipgloss.NewStyle().Foreground(colorMuted).Render(counter) + "\n")
 	}
 
+	// ── Footer hints ──────────────────────────────────────────────────────────
 	hints := []keyHint{
 		{"↑↓ / jk", "navigate"},
 		{"space", "toggle"},
@@ -255,6 +286,8 @@ func (m *Model) renderDependencyView() string {
 		hints = append(hints, keyHint{"/", "search"})
 		hints = append(hints, keyHint{"q", "quit"})
 	}
+	b.WriteString("\n")
 	b.WriteString(renderKeyHints(hints))
 	return b.String()
 }
+
