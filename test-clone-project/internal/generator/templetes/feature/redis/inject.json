@@ -1,0 +1,5 @@
+{
+  "target_dir": "config",
+  "config_field": "Redis RedisConfig",
+  "config_init": "Redis: LoadRedisConfig(),"
+}

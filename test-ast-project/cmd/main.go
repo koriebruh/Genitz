@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"log"
 )
 
@@ -21,5 +22,7 @@ func main() {
 		DB:       0,
 	})
 	_ = rdb
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 
 }

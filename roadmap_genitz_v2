@@ -1,0 +1,45 @@
+# 🚀 Roadmap Genitz V3: Era Enterprise & Ekspansi Ekosistem
+
+Setelah berhasil menyelesaikan **Tahap 1 (AST Smart Scaffolding)** dan **Tahap 3 (Project Manager CLI `genitz add`)**, arsitektur inti Genitz saat ini sudah sangat revolusioner dan stabil. Kini saatnya Genitz mengekspansi dominasinya agar betul-betul setara dengan raksasa seperti *Spring Initializr* atau alat internal milik perusahaan teknologi besar (contoh: *Spotify Backstage*).
+
+Berikut adalah rancangan jalan pengembangan (Roadmap) Genitz selanjutnya:
+
+---
+
+## 🌐 1. Genitz Web Server & API Duality (Tahap 2)
+Saat ini Genitz adalah piranti terminal lokal. Agar Genitz bisa digunakan berjamaah oleh seluruh _tim developer_ perusahaan, ia harus bisa di-hosting!
+
+- **Fitur `genitz serve`**: Sub-command baru yang menyalakan server REST API (menggunakan framework Gin/Fiber bawaan yang di-generate sendiri 🤯).
+- **cURL Integration**: Mampu merespons skrip curl persis seperti Spring:
+  `curl -G https://start.koriebruh.com -d arch=microservice -d deps=redis,gorm -o my-app.zip`
+- **Frontend Agnostic**: Membuka pintu rintisan untuk membungkus antarmuka web GUI yang indah berbasis Next.js/Vite (menggantikan UI BubbleTea bagi pengguna yang kurang menyukai terminal).
+
+## 🌍 2. Universal Remote Templates (BYOT - Bring Your Own Template)
+Meskipun Genitz sudah menggunakan `embed.FS` yang portable, opsi arsitekturnya (Standard, Microservice, DDD) masih **statis & *hardcoded*** di source code Genitz.
+- **Remote Git Fetch**: Kemampuan mengambil template arsitektur eksternal dari _repository_ perusahaan.
+  - Perintah baru: `genitz init --repo github.com/koriebruh/company-go-base`
+- Berkat **AST Engine**, Genitz tetap bisa secara cerdas menyisipkan modul tambahan meskipun base template bukan dari folder internal Genitz! Inilah yang membuat Genitz bisa dinobatkan sebagai *Universal Code Injector*.
+
+## 🏗️ 3. Smart Config Struct Merger
+Pada versi sekarang, `genitz add` berhasil memasang import dan logic init di akhir fungsi [main.go](file:///d:/go-initializr/main.go). Namun, di level *enterprise*, aplikasi membutuhkan struktur konfigurasi rapi seperti file `config.yaml` / [.env](file:///d:/go-initializr/internal/generator/templates/feature/gin/.env) dan Go Struct `type Config struct`.
+- **AST Struct Updater**: Saat menambahkan dependensi baru (misal: Redis), Genitz tidak cuma menambahkannya di [main.go](file:///d:/go-initializr/main.go), tetapi juga secara magis akan mengunjungi layer configurasi (misalnya `internal/config/config.go`) dan menambahkan *field*:
+  ```go
+  type AppConfig struct {
+      // ... field lama
+      Redis config.RedisConfig `json:"redis"` // <--- Injeksi otomatis AST
+  }
+  ```
+- **Matrix Compatibility Validation**: Sistem *pre-check* sebelum mengunduh. Jika dependensi saling tumpang tindih versinya, `genitz` akan memberikan peringatan konflik layaknya *yarn/npm*.
+
+## 🧪 4. Auto-Mocking & Unit Test Generation
+Setiap `genitz add` dieksekusi, Genitz akan otomatis menyiapkan:
+- Berkas [_test.go](file:///d:/go-initializr/internal/astparser/parser_test.go) kosong dengan format _table-driven tests_ bawaan library tersebut.
+- *Mock Interfaces* siap tempur (bersinergi dengan library `gomock` / `testify/mock`).
+
+---
+
+## 🎯 Prioritas Selanjutnya?
+Di antara 4 fokus di atas, mana yang menurut Anda paling menarik untuk dieksekusi lebih dulu? 
+- Jika Anda ingin **memamerkan aplikasi** ke teman-teman di internet, saya sarankan **No. 1 (Web Server)**.
+- Jika Anda ingin membuat Genitz **kompeten meracik struct Go secara elit**, saya sarankan **No. 3 (Struct Merger)**.
+- **Pilih prioritas Anda!**

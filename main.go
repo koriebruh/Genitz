@@ -10,6 +10,38 @@ import (
 )
 
 func main() {
+	if len(os.Args) >= 2 {
+		if os.Args[1] == "add" {
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: genitz add <package_id>")
+				fmt.Println("Example: genitz add redis\nAvailable packages: fiber, gin, gorm, redis, zap, validator")
+				os.Exit(1)
+			}
+			pkgID := os.Args[2]
+			if err := generator.AddDependencyHeadless(pkgID); err != nil {
+				fmt.Printf("❌ Error: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		} else if os.Args[1] == "clone" {
+			if len(os.Args) < 4 {
+				fmt.Println("Usage: genitz clone <repo_url> <project_name>")
+				fmt.Println("Example: genitz clone https://github.com/koriebruh/my-base-go new-app")
+				os.Exit(1)
+			}
+			repoURL := os.Args[2]
+			projName := os.Args[3]
+			if err := generator.CloneRemoteTemplate(repoURL, projName); err != nil {
+				fmt.Printf("❌ Error: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		} else {
+			fmt.Printf("Unknown command: %s\n", os.Args[1])
+			fmt.Println("Available commands: add, clone")
+			os.Exit(1)
+		}
+	}
 	genFunc := func(m *tui.Model) error {
 		req, err := generator.NewRequirementFromModel(m)
 		if err != nil {

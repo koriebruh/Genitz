@@ -106,3 +106,62 @@ func InjectToMain(filePath, snippet string) error {
 
 	return os.WriteFile(filePath, buf.Bytes(), 0644)
 }
+
+// InjectStructField parse code snippet property (e.g `Redis config.RedisConfig`) and safely append it to target struct name globally.
+func InjectStructField(filePath, structName, fieldStr string) error {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("failed to parse file %s: %w", filePath, err)
+	}
+
+	// Parse the fieldStr into an *ast.Field by wrapping it in a dummy struct
+	snippetCode := "package main\ntype ____ struct {\n\t" + fieldStr + "\n}"
+	snippetFile, err := parser.ParseFile(fset, "", snippetCode, 0)
+	if err != nil {
+		return fmt.Errorf("failed to parse snippet field syntax: %w", err)
+	}
+
+	var newField *ast.Field
+	for _, d := range snippetFile.Decls {
+		if gen, ok := d.(*ast.GenDecl); ok && gen.Tok == token.TYPE {
+			if len(gen.Specs) > 0 {
+				if tSpec, ok := gen.Specs[0].(*ast.TypeSpec); ok {
+					if st, ok := tSpec.Type.(*ast.StructType); ok && len(st.Fields.List) > 0 {
+						newField = st.Fields.List[0]
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if newField == nil {
+		return fmt.Errorf("could not extract field from snippet")
+	}
+
+	modified := false
+	for _, d := range f.Decls {
+		if gen, ok := d.(*ast.GenDecl); ok && gen.Tok == token.TYPE {
+			for _, spec := range gen.Specs {
+				if tSpec, ok := spec.(*ast.TypeSpec); ok && tSpec.Name.Name == structName {
+					if st, ok := tSpec.Type.(*ast.StructType); ok {
+						st.Fields.List = append(st.Fields.List, newField)
+						modified = true
+					}
+				}
+			}
+		}
+	}
+
+	if !modified {
+		return fmt.Errorf("struct %s not found in %s", structName, filePath)
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, f); err != nil {
+		return fmt.Errorf("failed to format node: %w", err)
+	}
+
+	return os.WriteFile(filePath, buf.Bytes(), 0644)
+}

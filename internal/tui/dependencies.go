@@ -5,21 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-)
-
-const (
-	CatFramework     = "framework"
-	CatORM           = "orm"
-	CatDriver        = "driver"
-	CatCache         = "cache"
-	CatMessageBroker = "broker"
-	CatRPC           = "rpc"
-	CatLogger        = "logger"
-	CatTracing       = "tracing"
-	CatMetrics       = "metrics"
-	CatAuth          = "auth"
-	CatValidation    = "validation"
-	CatDoc           = "documentation"
+	"github.com/koriebruh/Genitz/internal/registry"
 )
 
 // getBadgeStyle returns a coloured pill style for a given dependency category.
@@ -31,103 +17,33 @@ func getBadgeStyle(category string) lipgloss.Style {
 		Foreground(lipgloss.Color("#FFFFFF"))
 
 	switch category {
-	case CatFramework:
+	case registry.CatFramework:
 		return base.Background(lipgloss.Color("#00ADD8"))
-	case CatORM:
+	case registry.CatORM:
 		return base.Background(lipgloss.Color("#F7931E"))
-	case CatDriver:
+	case registry.CatDriver:
 		return base.Background(lipgloss.Color("#4DB33D"))
-	case CatCache:
+	case registry.CatCache:
 		return base.Background(lipgloss.Color("#D82C20"))
-	case CatMessageBroker:
+	case registry.CatMessageBroker:
 		return base.Background(lipgloss.Color("#004E7A"))
-	case CatRPC:
+	case registry.CatRPC:
 		return base.Background(lipgloss.Color("#00B5AD"))
-	case CatLogger:
+	case registry.CatLogger:
 		return base.Background(lipgloss.Color("#555555"))
-	case CatTracing:
+	case registry.CatTracing:
 		return base.Background(lipgloss.Color("#6B4E90"))
-	case CatMetrics:
+	case registry.CatMetrics:
 		return base.Background(lipgloss.Color("#FF4500"))
-	case CatAuth:
+	case registry.CatAuth:
 		return base.Background(lipgloss.Color("#E91E63"))
-	case CatValidation:
+	case registry.CatValidation:
 		return base.Background(lipgloss.Color("#8BC34A"))
-	case CatDoc:
+	case registry.CatDoc:
 		return base.Background(lipgloss.Color("#3F51B5"))
 	default:
 		return base.Background(lipgloss.Color("#222222"))
 	}
-}
-
-// Dependency describes a Go dependency the user can opt into.
-type Dependency struct {
-	ID          string
-	Name        string
-	Category    string
-	ImportPath  string
-	IsDefault   bool
-	Requires    []string
-	Description string
-	TemplateDir string
-}
-
-// depsPath is the path prefix inside the embedded templates FS (see generator/embed.go).
-var depsPath = "templates/feature/%s"
-
-// DependencyRegistry is the list of selectable dependencies shown in StepDeps.
-var DependencyRegistry = []Dependency{
-	{
-		ID: "redis", Name: "Redis", Category: CatCache,
-		ImportPath:  "github.com/redis/go-redis/v9",
-		Description: "Redis client for Go",
-		TemplateDir: fmt.Sprintf(depsPath, "redis"),
-	},
-	{
-		ID: "validator", Name: "Go Playground Validator", Category: CatValidation,
-		ImportPath:  "github.com/go-playground/validator/v10",
-		Description: "Struct and field validation via struct tags",
-		TemplateDir: fmt.Sprintf(depsPath, "validator"),
-	},
-	{
-		ID: "fiber", Name: "Fiber", Category: CatFramework,
-		ImportPath:  "github.com/gofiber/fiber/v3",
-		Description: "Express-inspired web framework written in Go",
-		TemplateDir: fmt.Sprintf(depsPath, "fiber"),
-	},
-	{
-		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
-		ImportPath:  "github.com/gin-gonic/gin",
-		Description: "High-performance HTTP web framework",
-		TemplateDir: fmt.Sprintf(depsPath, "gin"),
-	},
-	{
-		ID: "gorm", Name: "GORM", Category: CatORM,
-		ImportPath:  "gorm.io/gorm",
-		Description: "The fantastic ORM library for Golang",
-		TemplateDir: fmt.Sprintf(depsPath, "gorm"),
-	},
-	{
-		ID: "zap", Name: "Uber Zap", Category: CatLogger,
-		ImportPath:  "go.uber.org/zap",
-		Description: "Blazing fast, structured, leveled logging",
-		TemplateDir: fmt.Sprintf(depsPath, "zap"),
-	},
-}
-
-
-// depGroups defines the display order and category membership for each group.
-var depGroups = []struct {
-	label      string
-	categories []string
-}{
-	{"Web / Routing", []string{CatFramework, CatRPC}},
-	{"Database", []string{CatORM, CatDriver}},
-	{"Cache", []string{CatCache}},
-	{"Messaging", []string{CatMessageBroker}},
-	{"Observability", []string{CatLogger, CatTracing, CatMetrics}},
-	{"Security", []string{CatAuth}},
-	{"Utilities", []string{CatValidation, CatDoc}},
 }
 
 // groupHeaderStyle is the amber label rendered above each category section.
@@ -143,12 +59,12 @@ func (m *Model) buildVisibleOrder() []int {
 	query := strings.ToLower(strings.TrimSpace(m.SearchQuery))
 	var order []int
 	seen := make(map[int]bool)
-	for _, group := range depGroups {
+	for _, group := range registry.DepGroups {
 		for i, dep := range m.Registry {
 			if seen[i] {
 				continue
 			}
-			for _, cat := range group.categories {
+			for _, cat := range group.Categories {
 				if dep.Category != cat {
 					continue
 				}
@@ -166,12 +82,11 @@ func (m *Model) buildVisibleOrder() []int {
 	return order
 }
 
-// findDepGroup returns the display label of the group a dependency belongs to.
-func findDepGroup(dep Dependency) string {
-	for _, group := range depGroups {
-		for _, cat := range group.categories {
+func findDepGroup(dep registry.Dependency) string {
+	for _, group := range registry.DepGroups {
+		for _, cat := range group.Categories {
 			if dep.Category == cat {
-				return group.label
+				return group.Label
 			}
 		}
 	}
