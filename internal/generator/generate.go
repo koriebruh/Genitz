@@ -13,6 +13,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/koriebruh/Genitz/internal/astparser"
 	"github.com/koriebruh/Genitz/internal/tui"
 )
 
@@ -29,6 +30,21 @@ var architectureCatalog = map[string]tui.Architecture{
 		Name:        tui.ArchClean,
 		Description: "Layered clean architecture with adapters/core split",
 		TemplateDir: templateRoot + "/architecture/clean-architecture",
+	},
+	tui.ArchStandard: {
+		Name:        tui.ArchStandard,
+		Description: "Standard idiomatic layout",
+		TemplateDir: templateRoot + "/architecture/standard-layout",
+	},
+	tui.ArchDDD: {
+		Name:        tui.ArchDDD,
+		Description: "Domain Driven Design layout",
+		TemplateDir: templateRoot + "/architecture/domain-driven-design",
+	},
+	tui.ArchCLI: {
+		Name:        tui.ArchCLI,
+		Description: "CLI Tool layout",
+		TemplateDir: templateRoot + "/architecture/cli-tool",
 	},
 }
 
@@ -93,19 +109,17 @@ func GenerateNewProject(req Requirement) error {
 	}
 
 	tmplData := newTemplateData(req)
-	// Prepare config data based on dependencies
-	enrichConfigData(req, tmplData)
 
 	fmt.Printf("\n📁 Creating project at %s\n", targetPath)
 	if err := copyArchitectureTemplate(req, targetPath, tmplData); err != nil {
 		return err
 	}
 
-	if err := generateConfigFile(targetPath, tmplData); err != nil {
+	if err := applyDependencyTemplates(targetPath, req, tmplData); err != nil {
 		return err
 	}
 
-	if err := applyDependencyTemplates(targetPath, req, tmplData); err != nil {
+	if err := applyASTInjections(targetPath, req); err != nil {
 		return err
 	}
 
@@ -195,9 +209,9 @@ func ArchitectureAvailable(name string) bool {
 }
 
 type FeatureInjection struct {
-	TargetDir   string `json:"target_dir"`   // e.g. "config"
-	ConfigField string `json:"config_field"` // e.g. "Redis RedisConfig"
-	ConfigInit  string `json:"config_init"`  // e.g. "Redis: LoadRedisConfig(),"
+	TargetDir   string   `json:"target_dir"`   // e.g. "config"
+	MainImports []string `json:"main_imports"` // List of packages to import in main.go
+	MainInit    string   `json:"main_init"`    // Raw go code to inject in main()
 }
 
 // titleCase capitalises only the first letter of a string.
@@ -211,16 +225,36 @@ func titleCase(s string) string {
 	return string(r)
 }
 
-func enrichConfigData(req Requirement, data map[string]any) {
-	configFields := []string{}
-	configInit := []string{}
+func findMainGoFilePath(root string) (string, error) {
+	var mainPath string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() && info.Name() == "main.go" {
+			mainPath = path
+			return io.EOF // Stop traversal
+		}
+		return nil
+	})
+	if err == io.EOF && mainPath != "" {
+		return mainPath, nil
+	}
+	return "", fmt.Errorf("main.go not found in %s", root)
+}
+
+func applyASTInjections(target string, req Requirement) error {
+	mainFilePath, err := findMainGoFilePath(target)
+	if err != nil {
+		fmt.Printf("⚠️ Warn: skipping AST injections, unable to locate main.go: %v\n", err)
+		return nil
+	}
 
 	for _, dep := range req.Deps {
 		if dep.TemplateDir == "" {
 			continue
 		}
 
-		// Read inject.json from embedded FS
 		injectFile := dep.TemplateDir + "/inject.json"
 		content, err := templatesFS.ReadFile(injectFile)
 		if err != nil {
@@ -233,23 +267,25 @@ func enrichConfigData(req Requirement, data map[string]any) {
 			continue
 		}
 
-		if inject.ConfigField != "" {
-			configFields = append(configFields, "\t"+inject.ConfigField)
+		// Process AST Imports
+		for _, imp := range inject.MainImports {
+			fmt.Printf("🔍 Debug: injecting import %s into %s\n", imp, mainFilePath)
+			if err := astparser.AddImport(mainFilePath, imp); err != nil {
+				fmt.Printf("⚠️ Warn: failed to inject import %s for %s: %v\n", imp, dep.Name, err)
+			}
 		}
-		if inject.ConfigInit != "" {
-			configInit = append(configInit, "\t\t"+inject.ConfigInit)
+
+		// Process AST Main Body Initialization
+		if inject.MainInit != "" {
+			fmt.Printf("🔍 Debug: injecting %d bytes of code into %s func main()\n", len(inject.MainInit), mainFilePath)
+			if err := astparser.InjectToMain(mainFilePath, inject.MainInit); err != nil {
+				fmt.Printf("⚠️ Warn: failed to inject main code for %s: %v\n", dep.Name, err)
+			} else {
+				fmt.Printf("✅ Debug: Successfully injected!\n")
+			}
 		}
 	}
-
-	data["ConfigFields"] = configFields
-	data["ConfigInit"] = configInit
-}
-
-func generateConfigFile(target string, data map[string]any) error {
-	src := templateRoot + "/feature/config.go.templete"
-	dest := filepath.Join(target, "config", "config.go")
-	fmt.Printf("🔧 Generating config: %s\n", dest)
-	return renderTemplateFromEmbed(src, dest, data)
+	return nil
 }
 
 func ensureFreshProjectDir(path string) error {
@@ -503,7 +539,7 @@ func copyFileFromEmbed(src, dest string) error {
 	}
 	defer out.Close()
 
-	_, err = io.WriteString(out, string(content))
+	_, err = out.Write(content)
 	return err
 }
 

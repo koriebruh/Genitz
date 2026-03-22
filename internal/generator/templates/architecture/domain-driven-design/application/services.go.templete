@@ -1,0 +1,7 @@
+package application
+
+import "context"
+
+type UseCase interface {
+	Execute(ctx context.Context) error
+}

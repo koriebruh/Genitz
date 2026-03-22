@@ -1,5 +1,5 @@
 {
-  "target_dir": "config",
-  "config_field": "Logger LoggerConfig",
-  "config_init": "Logger: LoadLoggerConfig(),"
+  "target_dir": "pkg/logger",
+  "main_imports": ["go.uber.org/zap"],
+  "main_init": "logger, _ := zap.NewProduction()\ndefer logger.Sync()"
 }

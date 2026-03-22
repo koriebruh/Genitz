@@ -1,5 +1,5 @@
 {
-  "target_dir": "config",
-  "config_field": "Gin GinConfig",
-  "config_init": "Gin: LoadGinConfig(),"
+  "target_dir": "internal/router",
+  "main_imports": ["github.com/gin-gonic/gin"],
+  "main_init": "r := gin.Default()\nr.GET(\"/ping\", func(c *gin.Context) {\n\tc.JSON(200, gin.H{\"message\": \"pong\"})\n})\nr.Run()"
 }

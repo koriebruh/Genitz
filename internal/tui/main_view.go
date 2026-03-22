@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -22,6 +23,12 @@ var wizardSteps = []stepDef{
 
 // keyHint is a keyboard shortcut + action description pair for the footer.
 type keyHint struct{ key, action string }
+
+// GenerateProjectFunc defines a callback function to run scaffolding logic.
+type GenerateProjectFunc func(*Model) error
+
+// generationMsg is returned when the scaffolding logic completes.
+type generationMsg struct{ err error }
 
 // Model is the root Bubble Tea model for the Genitz TUI wizard.
 type Model struct {
@@ -51,11 +58,14 @@ type Model struct {
 	Width  int
 	Height int
 
-	Done bool
+	Done         bool
+	GenErr       error
+	Spinner      spinner.Model
+	GenerateFunc GenerateProjectFunc
 }
 
 // InitialModel constructs the initial model starting at StepFolder.
-func InitialModel() *Model {
+func InitialModel(genFunc GenerateProjectFunc) *Model {
 	f := textinput.New()
 	f.Placeholder = "my-awesome-app"
 	f.CharLimit = 64
@@ -65,19 +75,39 @@ func InitialModel() *Model {
 	p.Placeholder = "github.com/username/repo"
 	p.CharLimit = 128
 
+	s := spinner.New()
+	s.Spinner = spinner.MiniDot
+	s.Style = lipgloss.NewStyle().Foreground(colorAccent)
+
 	return &Model{
-		Step:        StepFolder,
-		FolderInput: f,
-		PkgInput:    p,
-		ArchOptions: []string{ArchMicro, ArchClean, ArchStandard, ArchDDD, ArchCLI},
-		Registry:    DependencyRegistry,
-		Chosen:      make(map[int]Dependency),
+		Step:         StepFolder,
+		FolderInput:  f,
+		PkgInput:     p,
+		ArchOptions:  []string{ArchMicro, ArchClean, ArchStandard, ArchDDD, ArchCLI},
+		Registry:     DependencyRegistry,
+		Chosen:       make(map[int]Dependency),
+		Spinner:      s,
+		GenerateFunc: genFunc,
 	}
 }
 
-func (m *Model) Init() tea.Cmd { return nil }
+func (m *Model) Init() tea.Cmd { return textinput.Blink }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Custom messages for generating phase
+	switch msg := msg.(type) {
+	case generationMsg:
+		m.Done = true
+		if msg.err != nil {
+			m.GenErr = msg.err
+		}
+		return m, nil
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.Spinner, cmd = m.Spinner.Update(msg)
+		return m, cmd
+	}
+
 	// Always handle window resize.
 	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
 		m.Width = wsMsg.Width
@@ -86,6 +116,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		// If generator is done, any key press exits the app.
+		if m.Done {
+			return m, tea.Quit
+		}
+
 		if cmd, handled := m.handleGlobalKeys(keyMsg); handled {
 			return m, cmd
 		}
@@ -112,6 +147,8 @@ func (m *Model) View() string {
 		content = m.renderDependencyView()
 	case m.Step == StepReview:
 		content = m.viewReview()
+	case m.Step == StepGenerating:
+		content = m.viewGenerating()
 	}
 	return m.renderFrame(content)
 }
@@ -122,13 +159,11 @@ func (m *Model) View() string {
 func (m *Model) renderFrame(content string) string {
 	var b strings.Builder
 
-	switch {
-	case m.Height == 0 || m.Height >= 28:
-		// Height 0 means we haven't received WindowSizeMsg yet — show full header.
+	// Always show header; use compact if terminal height is limited.
+	if m.Height == 0 || m.Height >= 28 {
 		b.WriteString(RenderHeader(m.Width))
-	case m.Height >= 18:
+	} else {
 		b.WriteString(RenderHeaderCompact())
-		// Below 18: skip header entirely, maximise content space.
 	}
 
 	b.WriteString(m.renderStepNav())
@@ -148,7 +183,21 @@ func (m *Model) renderFrame(content string) string {
 		containerStyle = containerStyle.Width(usableW)
 	}
 	b.WriteString(containerStyle.Render(content))
-	return b.String()
+	
+	frame := b.String()
+	
+	// Center the entire application frame vertically within the terminal
+	if m.Height > 0 {
+		frameHeight := lipgloss.Height(frame)
+		if frameHeight <= m.Height {
+			return lipgloss.PlaceVertical(m.Height, lipgloss.Center, frame)
+		}
+		// If the frame is taller than the terminal, align Top 
+		// so the logo is never cropped at the top edge.
+		return lipgloss.PlaceVertical(m.Height, lipgloss.Top, frame)
+	}
+	
+	return frame
 }
 
 // dividerWidth returns the horizontal rule length clamped to terminal width.
@@ -340,6 +389,10 @@ func (m *Model) handleArchKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		m.Step = StepDeps
 		m.Cursor = 0
 		return nil, true
+	case "esc", "b":
+		m.PkgInput.Focus()
+		m.Step = StepPackage
+		return nil, true
 	case "q":
 		return tea.Quit, true
 	}
@@ -401,7 +454,12 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		if m.SearchQuery != "" {
 			m.SearchQuery = ""
 			m.clampCursor()
+		} else {
+			m.Step = StepArch
 		}
+		return nil, true
+	case "b":
+		m.Step = StepArch
 		return nil, true
 	case "up", "k":
 		if m.Cursor > 0 {
@@ -431,9 +489,12 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	switch msg.String() {
 	case "enter", "y":
-		m.Done = true
-		return tea.Quit, true
-	case "b":
+		m.Step = StepGenerating
+		return tea.Batch(m.Spinner.Tick, func() tea.Msg {
+			err := m.GenerateFunc(m)
+			return generationMsg{err: err}
+		}), true
+	case "esc", "b":
 		m.Step = StepDeps
 		return nil, true
 	case "q":
@@ -522,7 +583,6 @@ func (m *Model) viewFolder() string {
 	} else {
 		b.WriteString(styles.InputNote.Render("  will be created at ./<folder>/") + "\n")
 	}
-	b.WriteString("\n")
 	b.WriteString(renderKeyHints([]keyHint{{"enter", "next"}, {"ctrl+c", "quit"}}))
 	return b.String()
 }
@@ -541,8 +601,11 @@ func (m *Model) viewPackage() string {
 	} else {
 		b.WriteString(styles.InputNote.Render("  e.g. github.com/username/"+folder) + "\n")
 	}
-	b.WriteString("\n")
-	b.WriteString(renderKeyHints([]keyHint{{"enter", "next"}, {"ctrl+c", "quit"}}))
+	b.WriteString(renderKeyHints([]keyHint{
+		{"enter", "next"},
+		{"esc/b", "back"},
+		{"ctrl+c", "quit"},
+	}))
 	return b.String()
 }
 
@@ -582,7 +645,18 @@ func (m *Model) viewArchitecture() string {
 		}
 
 		b.WriteString(fmt.Sprintf("%s%s%s\n", cursor, name, badge))
-		b.WriteString(fmt.Sprintf("     %s\n\n", styles.Description.Render(archDescriptions[opt])))
+		b.WriteString(fmt.Sprintf("     %s\n", styles.Description.Render(archDescriptions[opt])))
+		
+		// Add ASCII tree preview if currently active
+		if isActive {
+			tree := archTrees[opt]
+			if tree != "" {
+				lines := strings.Split(tree, "\n")
+				for _, line := range lines {
+					b.WriteString(fmt.Sprintf("       %s\n", styles.StepPending.Render(line)))
+				}
+			}
+		}
 	}
 
 	if !AvailableArchitectures[m.ArchOptions[m.ArchCursor]] {
@@ -593,6 +667,7 @@ func (m *Model) viewArchitecture() string {
 	b.WriteString(renderKeyHints([]keyHint{
 		{"↑↓ / jk", "navigate"},
 		{"enter", "select"},
+		{"esc/b", "back"},
 		{"q", "quit"},
 	}))
 	return b.String()
@@ -632,13 +707,12 @@ func (m *Model) viewReview() string {
 	b.WriteString(summaryRow("Module", pkg, styles.StepActive))
 	b.WriteString(summaryRow("Architecture", arch, styles.Checkbox))
 	b.WriteString(summaryRow("Output", "./"+folder+"/", styles.StepPending))
-	b.WriteString("\n")
 
 	b.WriteString(styles.Description.Render("  DEPENDENCIES") + "\n")
 	b.WriteString(hr)
 
 	if len(m.Chosen) == 0 {
-		b.WriteString(fmt.Sprintf("  %s\n\n", styles.Description.Render("none selected")))
+		b.WriteString(fmt.Sprintf("  %s\n", styles.Description.Render("none selected")))
 	} else {
 		for _, group := range depGroups {
 			var hits []Dependency
@@ -661,23 +735,39 @@ func (m *Model) viewReview() string {
 					k, badge, styles.Description.Render(dep.ImportPath),
 				))
 			}
-			b.WriteRune('\n')
 		}
 	}
 
 	b.WriteString(hr)
 	b.WriteString(renderKeyHints([]keyHint{
 		{"enter / y", "generate"},
-		{"b", "back"},
+		{"esc/b", "back"},
 		{"q", "quit"},
 	}))
+	return b.String()
+}
+
+func (m *Model) viewGenerating() string {
+	var b strings.Builder
+	b.WriteString("\n\n")
+	b.WriteString(fmt.Sprintf("  %s %s\n", m.Spinner.View(), styles.Name.Render("Generating "+m.SelectedArch+" project...")))
+	b.WriteString(styles.Description.Render("    Preparing folder structure and dependencies..."))
+	b.WriteString("\n\n")
 	return b.String()
 }
 
 // viewDone is shown briefly before tea.Quit takes effect.
 func (m *Model) viewDone() string {
 	var b strings.Builder
-	b.WriteString(styles.Checkbox.Render("✔ Ready to scaffold!") + "\n\n")
-	b.WriteString(styles.Name.Render("  Generating "+m.SelectedArch+" project...") + "\n")
+	
+	if m.GenErr != nil {
+		b.WriteString(styles.StepPending.Render("❌ Generation failed:") + "\n")
+		b.WriteString("  " + errLine(m.GenErr.Error()) + "\n\n")
+	} else {
+		b.WriteString(styles.Checkbox.Render("✔ Successfully scaffolded!") + "\n")
+		b.WriteString(styles.Name.Render("  "+m.SelectedArch+" project is ready at ./"+m.FolderInput.Value()) + "\n\n")
+	}
+
+	b.WriteString(styles.Description.Render("  Press any key to exit..."))
 	return b.String()
 }

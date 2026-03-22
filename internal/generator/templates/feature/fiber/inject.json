@@ -1,5 +1,5 @@
 {
-  "target_dir": "config",
-  "config_field": "Fiber FiberConfig",
-  "config_init": "Fiber: LoadFiberConfig(),"
+  "target_dir": "internal/router",
+  "main_imports": ["github.com/gofiber/fiber/v2", "log"],
+  "main_init": "app := fiber.New()\napp.Get(\"/\", func(c *fiber.Ctx) error {\n\treturn c.SendString(\"Hello, World!\")\n})\nlog.Fatal(app.Listen(\":3000\"))"
 }

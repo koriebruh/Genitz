@@ -24,13 +24,17 @@ const (
 	StepArch
 	StepDeps
 	StepReview
+	StepGenerating
 )
 
 // AvailableArchitectures is the set of architecture names that have a complete
 // template. Unlisted names will be shown as "coming soon" in the TUI.
 var AvailableArchitectures = map[string]bool{
-	ArchMicro: true,
-	ArchClean: true,
+	ArchMicro:    true,
+	ArchClean:    true,
+	ArchStandard: true,
+	ArchDDD:      true,
+	ArchCLI:      true,
 }
 
 // archDescriptions maps each architecture name to a short description
@@ -41,4 +45,14 @@ var archDescriptions = map[string]string{
 	ArchClean:    "entity/ · usecase/ · repository/ · delivery/",
 	ArchDDD:      "domain/ · application/ · infra/ — bounded contexts",
 	ArchCLI:      "Single main package, ideal for small CLIs",
+}
+
+// archTrees maps each architecture name to a visual ASCII folder tree
+// shown when the item is highlighted.
+var archTrees = map[string]string{
+	ArchStandard: "├── cmd/\n├── internal/\n└── pkg/",
+	ArchMicro:    "├── cmd/\n├── config/\n├── internal/\n│   ├── api/\n│   └── core/\n└── pkg/",
+	ArchClean:    "├── domain/\n├── usecase/\n├── repository/\n└── delivery/",
+	ArchDDD:      "├── domain/\n├── application/\n└── infrastructure/",
+	ArchCLI:      "├── cmd/\n└── pkg/",
 }

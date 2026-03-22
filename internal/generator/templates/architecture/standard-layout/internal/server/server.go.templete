@@ -1,0 +1,17 @@
+package server
+
+import (
+	"context"
+)
+
+type Server struct {
+	// dependencies (db, logger, router)
+}
+
+func NewServer() *Server {
+	return &Server{}
+}
+
+func (s *Server) Start(ctx context.Context) error {
+	return nil
+}

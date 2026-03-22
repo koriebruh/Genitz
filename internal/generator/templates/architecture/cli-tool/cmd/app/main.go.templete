@@ -1,0 +1,14 @@
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	fmt.Println("{{.ProjectName}} CLI Tool v0.1.0")
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: app <command>")
+		os.Exit(1)
+	}
+}

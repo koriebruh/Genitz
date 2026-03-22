@@ -1,5 +1,5 @@
 {
-  "target_dir": "config",
-  "config_field": "Redis RedisConfig",
-  "config_init": "Redis: LoadRedisConfig(),"
+  "target_dir": "internal/cache",
+  "main_imports": ["github.com/redis/go-redis/v9", "context"],
+  "main_init": "rdb := redis.NewClient(&redis.Options{\n\tAddr:     \"localhost:6379\",\n\tPassword: \"\",\n\tDB:       0,\n})\n_ = rdb"
 }

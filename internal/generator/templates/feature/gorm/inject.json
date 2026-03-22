@@ -1,5 +1,5 @@
 {
-  "target_dir": "config",
-  "config_field": "Database DatabaseConfig",
-  "config_init": "Database: LoadDatabaseConfig(),"
+  "target_dir": "internal/database",
+  "main_imports": ["gorm.io/gorm", "gorm.io/driver/postgres", "log"],
+  "main_init": "dsn := \"host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Jakarta\"\n_db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})\nif err != nil {\n\tlog.Fatal(\"failed to connect database\")\n}\n_ = _db"
 }

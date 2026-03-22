@@ -10,9 +10,23 @@ import (
 )
 
 func main() {
+	genFunc := func(m *tui.Model) error {
+		req, err := generator.NewRequirementFromModel(m)
+		if err != nil {
+			return err
+		}
+		err = generator.GenerateNewProject(req)
+		if err != nil {
+			// Silently clean up partial directory if scaffolding fails
+			_ = os.RemoveAll(req.ProjectName)
+			return err
+		}
+		return nil
+	}
+
 	// WithAltScreen renders into the terminal's alternate buffer — this prevents
 	// the "double logo" effect when the user zooms in/out in their terminal.
-	p := tea.NewProgram(tui.InitialModel(), tea.WithAltScreen())
+	p := tea.NewProgram(tui.InitialModel(genFunc), tea.WithAltScreen())
 	m, err := p.Run()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -27,23 +41,7 @@ func main() {
 		return
 	}
 
-	req, err := generator.NewRequirementFromModel(finalModel)
-	if err != nil {
-		fmt.Printf("\nInput belum lengkap: %v\n", err)
-		os.Exit(1)
+	if finalModel.GenErr == nil {
+		fmt.Printf("\n📂 Project tersedia di: ./%s\n", finalModel.FolderInput.Value())
 	}
-
-	fmt.Println("\n🛠️  Sedang memproses project...")
-	if err := generator.GenerateNewProject(req); err != nil {
-		// Clean up any partially created directory so a failed run leaves no trace.
-		if removeErr := os.RemoveAll(req.ProjectName); removeErr != nil {
-			fmt.Printf("Warning: could not remove partial output %q: %v\n", req.ProjectName, removeErr)
-		} else {
-			fmt.Printf("Cleaned up partial directory: ./%s/\n", req.ProjectName)
-		}
-		fmt.Printf("\nGagal membuat project: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("\n📂 Project tersedia di: ./%s\n", req.ProjectName)
 }

@@ -89,13 +89,11 @@ func newUIStyles() uiStyles {
 		InputPrompt: lipgloss.NewStyle().Foreground(colorDone).Bold(true),
 		InputNote:   lipgloss.NewStyle().Foreground(colorMuted).Italic(true),
 
-		// Key badges: look like physical keyboard keys
+		// Key badges: text on a distinct background for visual separation without breaking line height
 		KeyBadge: lipgloss.NewStyle().
 			Foreground(colorAccent).
 			Background(colorSurface).
 			Bold(true).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorDivider).
 			Padding(0, 1),
 		KeyHint: lipgloss.NewStyle().Foreground(colorMuted),
 
