@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["go.opentelemetry.io/otel"],
+  "main_init": "_ = otel.GetTracerProvider()",
+  "struct_inject": []
+}

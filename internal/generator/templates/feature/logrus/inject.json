@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/sirupsen/logrus"],
+  "main_init": "log := logrus.New(); _ = log",
+  "struct_inject": []
+}

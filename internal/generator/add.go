@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/koriebruh/Genitz/internal/astparser"
 	"github.com/koriebruh/Genitz/internal/registry"
@@ -44,8 +45,20 @@ func AddDependencyHeadless(pkg string) error {
 				return fmt.Errorf("failed to parse inject configuration for %s: %w", dep.Name, err)
 			}
 
+			// Extract module name to support {{.Module}} macro
+			modName := "unknown"
+			if content, err := os.ReadFile("go.mod"); err == nil {
+				for _, line := range strings.Split(string(content), "\n") {
+					if strings.HasPrefix(strings.TrimSpace(line), "module ") {
+						modName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "module "))
+						break
+					}
+				}
+			}
+
 			// Injects
 			for _, imp := range inject.MainImports {
+				imp = strings.ReplaceAll(imp, "{{.Module}}", modName)
 				if err := astparser.AddImport(mainFilePath, imp); err != nil {
 					fmt.Printf("⚠️ Warn: failed to inject import %s: %v\n", imp, err)
 				}
@@ -67,10 +80,6 @@ func AddDependencyHeadless(pkg string) error {
 				}
 			}
 
-			// Modifikasi: Buat auto-test mock file untuk paket yang diretas
-			goPkgName := filepath.Base(dep.ImportPath)
-			testScaffold(".", goPkgName)
-
 			// Scaffold the boilerplate files for the feature
 			if inject.TargetDir != "" {
 				// We pass nil data because we don't have a Requirement object here,
@@ -83,7 +92,24 @@ func AddDependencyHeadless(pkg string) error {
 		}
 	}
 
-	// 5. Install the package
+	// 5. .env Merger — append new env vars without overwriting existing ones
+	if dep.TemplateDir != "" {
+		envVarsFile := dep.TemplateDir + "/env_vars.json"
+		if content, err := templatesFS.ReadFile(envVarsFile); err == nil {
+			var vars []EnvVar
+			if json.Unmarshal(content, &vars) == nil && len(vars) > 0 {
+				envPath := FindEnvFile(".")
+				if envPath == "" {
+					envPath = ".env"
+				}
+				if mergeErr := MergeEnvFile(envPath, vars); mergeErr == nil {
+					fmt.Printf("✅ Merged env vars into %s\n", envPath)
+				}
+			}
+		}
+	}
+
+	// 6. Install the package
 	fmt.Printf("⬇️  Downloading %s...\n", dep.ImportPath)
 	cmd := exec.Command("go", "get", dep.ImportPath)
 	cmd.Stdout = os.Stdout

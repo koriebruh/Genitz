@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["_ github.com/pressly/goose/v3"],
+  "main_init": "",
+  "struct_inject": []
+}

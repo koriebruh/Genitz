@@ -1,40 +1,44 @@
-package config
+package router
 
 import (
-	"log"
-	"time"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-	"github.com/caarlos0/env/v11"
 	"github.com/gin-gonic/gin"
 )
 
-type GinConfig struct {
-	AppName      string        `env:"APP_NAME"       envDefault:"Genitz App"`
-	Mode         string        `env:"GIN_MODE"       envDefault:"debug"`
-	ReadTimeout  time.Duration `env:"READ_TIMEOUT"   envDefault:"10s"`
-	WriteTimeout time.Duration `env:"WRITE_TIMEOUT"  envDefault:"10s"`
-	Port         string        `env:"PORT"           envDefault:"8080"`
+// SetupGinRouter creates a production-ready *gin.Engine.
+// Call gin.SetMode(gin.TestMode) before this in tests.
+func SetupGinRouter() *gin.Engine {
+	router := gin.New()
+
+	// Standard middleware
+	router.Use(gin.Recovery())
+
+	// Health-check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	return router
 }
 
-func LoadGinConfig() GinConfig {
-	cfg := GinConfig{}
-	if err := env.Parse(&cfg); err != nil {
-		log.Fatalf("failed to load gin config: %v", err)
+// TestSetupGinRouter verifies the router starts up and /health returns 200.
+func TestSetupGinRouter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := SetupGinRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/health", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 from /health, got %d", w.Code)
 	}
-	return cfg
-}
-
-// NewGin creates a new Gin engine with production-ready configuration.
-func NewGin(cfg GinConfig) *gin.Engine {
-	gin.SetMode(cfg.Mode)
-
-	r := gin.New()
-
-	// Recovery middleware recovers from any panics and writes a 500 error.
-	r.Use(gin.Recovery())
-
-	// Logger middleware logs request/response details.
-	r.Use(gin.Logger())
-
-	return r
+	body, _ := io.ReadAll(w.Body)
+	if len(body) == 0 {
+		t.Error("Expected non-empty response body")
+	}
 }

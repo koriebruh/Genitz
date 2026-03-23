@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["_ github.com/jackc/pgx/v5/stdlib"],
+  "main_init": "",
+  "struct_inject": []
+}

@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/getsentry/sentry-go"],
+  "main_init": "sentry.Init(sentry.ClientOptions{})",
+  "struct_inject": []
+}

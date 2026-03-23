@@ -1,0 +1,12 @@
+{
+  "target_dir": "internal/config",
+  "main_imports": ["github.com/spf13/viper"],
+  "main_init": "vCfg := config.NewViper()\nappCfg := config.LoadAppConfig(vCfg)\n_ = appCfg",
+  "struct_inject": [
+    {
+      "struct_name": "AppDependencies",
+      "field": "Viper *viper.Viper",
+      "file_path": "cmd/main.go"
+    }
+  ]
+}

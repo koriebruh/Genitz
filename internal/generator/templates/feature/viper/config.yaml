@@ -1,0 +1,14 @@
+app:
+  name: "Genitz App"
+  env: "development"
+  port: "8080"
+  
+log:
+  level: "info"
+  
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: ""
+  name: "mydb"

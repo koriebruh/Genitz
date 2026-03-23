@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/casbin/casbin/v2"],
+  "main_init": "",
+  "struct_inject": []
+}

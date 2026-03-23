@@ -1,0 +1,8 @@
+[
+  { "Key": "DB_HOST", "Value": "localhost" },
+  { "Key": "DB_PORT", "Value": "5432" },
+  { "Key": "DB_NAME", "Value": "genitz_db" },
+  { "Key": "DB_USER", "Value": "postgres" },
+  { "Key": "DB_PASSWORD", "Value": "postgres" },
+  { "Key": "DB_SSLMODE", "Value": "disable" }
+]

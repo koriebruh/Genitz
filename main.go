@@ -36,9 +36,21 @@ func main() {
 				os.Exit(1)
 			}
 			os.Exit(0)
+		} else if os.Args[1] == "remove" || os.Args[1] == "rm" {
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: genitz remove <package_id>")
+				fmt.Println("Example: genitz remove redis")
+				os.Exit(1)
+			}
+			pkgID := os.Args[2]
+			if err := generator.RemoveDependencyHeadless(pkgID); err != nil {
+				fmt.Printf("❌ Error: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
 		} else {
 			fmt.Printf("Unknown command: %s\n", os.Args[1])
-			fmt.Println("Available commands: add, clone")
+			fmt.Println("Available commands: add, remove (rm), clone")
 			os.Exit(1)
 		}
 	}

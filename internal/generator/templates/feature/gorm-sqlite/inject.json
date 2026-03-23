@@ -1,0 +1,13 @@
+{
+  "target_dir": "internal/database",
+  "main_imports": ["{{.Module}}/internal/database"],
+  "main_init": "cfgDB := database.LoadDatabaseConfig()\n_db := database.NewDatabase(cfgDB)\n_ = _db",
+  "struct_inject": [
+    {
+      "struct_name": "AppDependencies",
+      "field": "DB *gorm.DB",
+      "file_path": "cmd/main.go"
+    }
+  ]
+}
+

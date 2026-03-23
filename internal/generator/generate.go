@@ -277,6 +277,9 @@ func applyASTInjections(target string, req Requirement) error {
 
 		// Process AST Imports
 		for _, imp := range inject.MainImports {
+			// Macro replacement for local packages
+			imp = strings.ReplaceAll(imp, "{{.Module}}", req.PackageName)
+			
 			fmt.Printf("🔍 Debug: injecting import %s into %s\n", imp, mainFilePath)
 			if err := astparser.AddImport(mainFilePath, imp); err != nil {
 				fmt.Printf("⚠️ Warn: failed to inject import %s for %s: %v\n", imp, dep.Name, err)
@@ -302,49 +305,10 @@ func applyASTInjections(target string, req Requirement) error {
 				fmt.Printf("✅ Debug: Successfully injected struct field %q into %s\n", si.Field, si.StructName)
 			}
 		}
-
-		// Auto-Mock Test Generator
-		// Jika depensinya punya nama, buatkan file base scaffold unit test
-		if dep.Name != "" {
-			goPkgName := filepath.Base(dep.ImportPath)
-			testScaffold(target, goPkgName)
-		}
 	}
 	return nil
 }
 
-// testScaffold generates a standard table-driven test skeleton for the injected module.
-func testScaffold(targetDir, pkgName string) {
-	testCode := fmt.Sprintf(`package main
-
-import (
-	"testing"
-)
-
-func Test%s(t *testing.T) {
-	// Auto-generated table-driven test scaffold for %s
-	tests := []struct {
-		name    string
-		want    error
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Logic
-		})
-	}
-}
-`, titleCase(pkgName), pkgName)
-
-	testFileName := filepath.Join(targetDir, fmt.Sprintf("%s_test.go", pkgName))
-	// Only create if not exist
-	if _, err := os.Stat(testFileName); os.IsNotExist(err) {
-		if err := os.WriteFile(testFileName, []byte(testCode), 0644); err == nil {
-			fmt.Printf("✅ Setup: Auto-generated mock test -> %s\n", testFileName)
-		}
-	}
-}
 
 func ensureFreshProjectDir(path string) error {
 	if _, err := os.Stat(path); err == nil {
@@ -490,27 +454,19 @@ func mergeEnvFiles(target string, req Requirement) error {
 			continue
 		}
 
-		srcEnv := dep.TemplateDir + "/.env"
+		srcEnv := dep.TemplateDir + "/env_vars.json"
 		content, err := templatesFS.ReadFile(srcEnv)
 		if err != nil {
-			continue // Skip if no .env in embedded FS
+			continue // Skip if no env_vars.json in embedded FS
 		}
 
-		envContent += fmt.Sprintf("\n# %s Configuration\n", titleCase(dep.Name))
-
-		lines := strings.Split(string(content), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				key := strings.TrimSpace(parts[0])
-				if !seenKeys[key] {
-					envContent += line + "\n"
-					seenKeys[key] = true
+		var vars []EnvVar
+		if json.Unmarshal(content, &vars) == nil && len(vars) > 0 {
+			envContent += fmt.Sprintf("\n# %s Configuration\n", titleCase(dep.Name))
+			for _, v := range vars {
+				if !seenKeys[v.Key] {
+					envContent += fmt.Sprintf("%s=%s\n", v.Key, v.Value)
+					seenKeys[v.Key] = true
 				}
 			}
 		}

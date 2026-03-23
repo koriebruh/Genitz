@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/confluentinc/confluent-kafka-go/kafka"],
+  "main_init": "",
+  "struct_inject": []
+}

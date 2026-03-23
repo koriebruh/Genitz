@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/rabbitmq/amqp091-go"],
+  "main_init": "",
+  "struct_inject": []
+}

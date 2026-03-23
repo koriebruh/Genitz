@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/rs/zerolog/log"],
+  "main_init": "log.Info().Msg(\"zerolog initialized\")",
+  "struct_inject": []
+}

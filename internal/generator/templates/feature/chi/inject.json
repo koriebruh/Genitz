@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/go-chi/chi/v5"],
+  "main_init": "r := chi.NewRouter(); http.ListenAndServe(":3000", r)",
+  "struct_inject": []
+}

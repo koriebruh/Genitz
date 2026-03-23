@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/robfig/cron/v3"],
+  "main_init": "c := cron3.New(); c.Start(); defer c.Stop()",
+  "struct_inject": []
+}

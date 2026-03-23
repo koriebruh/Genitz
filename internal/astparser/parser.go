@@ -9,14 +9,21 @@ import (
 	"go/token"
 	"os"
 	"strconv"
+	"strings"
 )
 
-// AddImport safely injects a new package import to a go file if it doesn't already exist.
 func AddImport(filePath, importPath string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 	if err != nil {
 		return fmt.Errorf("failed to parse file %s: %w", filePath, err)
+	}
+
+	alias := ""
+	parts := strings.SplitN(importPath, " ", 2)
+	if len(parts) == 2 {
+		alias = parts[0]
+		importPath = parts[1]
 	}
 
 	// Check if already imported
@@ -28,6 +35,9 @@ func AddImport(filePath, importPath string) error {
 
 	newImp := &ast.ImportSpec{
 		Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(importPath)},
+	}
+	if alias != "" {
+		newImp.Name = &ast.Ident{Name: alias}
 	}
 
 	injected := false
@@ -163,5 +173,93 @@ func InjectStructField(filePath, structName, fieldStr string) error {
 		return fmt.Errorf("failed to format node: %w", err)
 	}
 
+	return os.WriteFile(filePath, buf.Bytes(), 0644)
+}
+
+// RemoveImport removes an import path from a Go file (handles alias like `_ "pkg"`).
+func RemoveImport(filePath, importPath string) error {
+	// Handle `alias pkg` format — extract bare path
+	parts := strings.SplitN(importPath, " ", 2)
+	if len(parts) == 2 {
+		importPath = parts[1]
+	}
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("failed to parse file %s: %w", filePath, err)
+	}
+
+	quoted := strconv.Quote(importPath)
+	modified := false
+	for _, d := range f.Decls {
+		gen, ok := d.(*ast.GenDecl)
+		if !ok || gen.Tok != token.IMPORT {
+			continue
+		}
+		var kept []ast.Spec
+		for _, spec := range gen.Specs {
+			imp, ok := spec.(*ast.ImportSpec)
+			if ok && imp.Path.Value == quoted {
+				modified = true
+				continue // drop it
+			}
+			kept = append(kept, spec)
+		}
+		gen.Specs = kept
+	}
+
+	if !modified {
+		return fmt.Errorf("import %q not found in %s", importPath, filePath)
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, f); err != nil {
+		return fmt.Errorf("failed to format node: %w", err)
+	}
+	return os.WriteFile(filePath, buf.Bytes(), 0644)
+}
+
+// RemoveStatementsMatching removes statements in a named func that contain a given substring.
+// Used by `genitz remove` to undo injected init code.
+func RemoveStatementsMatching(filePath, funcName, keyword string) error {
+	fset := token.NewFileSet()
+	src, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	f, err := parser.ParseFile(fset, filePath, src, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("failed to parse file %s: %w", filePath, err)
+	}
+
+	modified := false
+	for _, d := range f.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != funcName || fn.Body == nil {
+			continue
+		}
+		var kept []ast.Stmt
+		for _, stmt := range fn.Body.List {
+			// Render statement to text and check whether keyword appears
+			var sb bytes.Buffer
+			format.Node(&sb, fset, stmt) //nolint:errcheck
+			if strings.Contains(sb.String(), keyword) {
+				modified = true
+				continue // drop it
+			}
+			kept = append(kept, stmt)
+		}
+		fn.Body.List = kept
+	}
+
+	if !modified {
+		return fmt.Errorf("no statement matching %q found in func %s", keyword, funcName)
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, f); err != nil {
+		return fmt.Errorf("failed to format node: %w", err)
+	}
 	return os.WriteFile(filePath, buf.Bytes(), 0644)
 }

@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/hibiken/asynq"],
+  "main_init": "client := asynq.NewClient(asynq.RedisClientOpt{Addr: "localhost:6379"}); _ = client",
+  "struct_inject": []
+}

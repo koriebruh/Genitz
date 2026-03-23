@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/prometheus/client_golang/prometheus"],
+  "main_init": "",
+  "struct_inject": []
+}

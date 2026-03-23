@@ -1,49 +1,42 @@
-package config
+package logger
 
 import (
 	"log"
-	"os"
 
-	"github.com/caarlos0/env/v11"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+// LoggerConfig holds configuration for the Zap logger.
 type LoggerConfig struct {
-	Level      string `env:"LOG_LEVEL"      envDefault:"info"`
-	Encoding   string `env:"LOG_ENCODING"   envDefault:"json"`
-	OutputPath string `env:"LOG_OUTPUT"     envDefault:"stdout"`
+	// Level: "debug", "info", "warn", "error"
+	Level string `env:"LOG_LEVEL" envDefault:"info"`
+	// Format: "json" or "console"
+	Format string `env:"LOG_FORMAT" envDefault:"json"`
 }
 
-func LoadLoggerConfig() LoggerConfig {
-	cfg := LoggerConfig{}
-	if err := env.Parse(&cfg); err != nil {
-		log.Fatalf("failed to load logger config: %v", err)
-	}
-	return cfg
-}
-
-// NewLogger creates a new production-ready zap.Logger.
+// NewLogger creates a configured *zap.Logger.
+// In production, JSON format is recommended.
+// In development (console), a human-friendly format is used instead.
 func NewLogger(cfg LoggerConfig) *zap.Logger {
-	level := zapcore.InfoLevel
-	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
-		log.Printf("invalid log level %q, defaulting to info", cfg.Level)
-	}
+	var zapCfg zap.Config
 
-	encoderCfg := zap.NewProductionEncoderConfig()
-	encoderCfg.TimeKey = "time"
-	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderCfg.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	var encoder zapcore.Encoder
-	if cfg.Encoding == "console" {
-		encoder = zapcore.NewConsoleEncoder(encoderCfg)
+	if cfg.Format == "console" {
+		zapCfg = zap.NewDevelopmentConfig()
 	} else {
-		encoder = zapcore.NewJSONEncoder(encoderCfg)
+		zapCfg = zap.NewProductionConfig()
 	}
 
-	syncer := zapcore.AddSync(os.Stdout)
+	level, err := zapcore.ParseLevel(cfg.Level)
+	if err != nil {
+		level = zapcore.InfoLevel
+	}
+	zapCfg.Level = zap.NewAtomicLevelAt(level)
 
-	core := zapcore.NewCore(encoder, syncer, level)
-	return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	logger, err := zapCfg.Build()
+	if err != nil {
+		log.Fatalf("failed to initialize zap logger: %v", err)
+	}
+
+	return logger
 }

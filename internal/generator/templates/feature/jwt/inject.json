@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["github.com/golang-jwt/jwt/v5"],
+  "main_init": "_ = jwt.New(jwt.SigningMethodHS256)",
+  "struct_inject": []
+}

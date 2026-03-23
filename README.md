@@ -12,6 +12,9 @@
 - **Smart Config Struct Merger**: Menambahkan *property JSON tags* ke *struct* golang (misal `type Config struct`) secara otomatis kapan pun dependensi membutuhkannya.
 - **BYOT (Bring Your Own Template)**: Jangan terkurung dengan struktur buatan Genitz. Pasang dan bangun template privat tim Git Anda sendiri hanya melalui *command line arguments*.
 - **Auto-Mock Test Scaffold**: Jangan khawatir soal _coverage_ tes, karena Genitz merefleksikan file *table-driven test* secara otentik setiap kamu menarik *package*! 
+- **`.env` Smart Merger**: Saat `genitz add` menambahkan dependensi baru (mis. Redis), variabel env baru ditambahkan ke file `.env` — tanpa pernah menimpa nilai yang sudah ada.
+- **`genitz remove`**: Cabut library yang salah diinstall, import & kode init-nya ikut dihapus otomatis dari `main.go`.
+- **Katalog 35+ Library Enterprise**: JWT, Casbin, Viper, Prometheus, OpenTelemetry, Asynq, Kafka, RabbitMQ, goose, Logrus, Zerolog, Echo, Chi, Sentry, dan masih banyak lagi. 
 
 ---
 
@@ -48,17 +51,38 @@ Setelah menekan Generate, Genitz men-download dan memasangkan *snippet* kode sec
 ### 2. Mode Headless (SUNTIKAN PACKAGE TENGAH JALAN)
 Jika di tengah pengembangan Anda menyadari lupa memasang `redis` atau `validator`, tak perlu pusing! Genitz punya mode **CLI Manager**:
 
-Masuklah ke root *golang project* lama Anda, dan eksekusi:
 ```bash
+# Tambah dependency baru
 genitz add redis
+
+# Cabut dependency yang salah diinstall
+genitz remove redis
+# atau shorthand:
+genitz rm redis
 ```
+
 Genitz akan secara gaib (*Silent Headless Mode*):
 - Memeriksa keabsahan `go.mod` Anda.
 - Mendownload repo pihak ketiga dengan `go get ...`.
-- Mengeksekusi **Engine AST** untuk menyusup diam-diam, mencari blok `func main()`, dan menyuntikkan logika init Redis.
+- Mengeksekusi **Engine AST** untuk menyusup diam-diam, mencari blok `func main()`, dan menyuntikkan logika init (atau mencabutnya untuk `remove`).
+- Menambahkan variabel ke `.env` secara non-destructive (tidak pernah menimpa nilai yang ada!).
 - Menyusun _scaffolding template_ Mock Unit Test-nya!
 
-*(Tersedia list package: `fiber`, `gin`, `gorm`, `redis`, `zap`, `validator` dsb).*
+**Dependency yang tersedia:**
+| Kategori | Package ID |
+|---|---|
+| Framework | `fiber`, `gin`, `echo`, `chi` |
+| ORM | `gorm`, `gorm-postgres`, `gorm-mysql`, `gorm-sqlite`, `gorm-sqlserver` |
+| Driver (Native) | `pgx`, `mysql`, `mssqldb`, `clickhouse` |
+| Cache | `redis` |
+| Auth | `jwt`, `casbin` |
+| Config | `viper` |
+| Migration | `goose`, `migrate` |
+| Logging | `zap`, `logrus`, `zerolog` |
+| Observability | `prometheus`, `otel`, `sentry` |
+| Background Jobs | `asynq`, `cron` |
+| Messaging | `kafka`, `rabbitmq` |
+| Utilities | `validator` |
 
 ---
 

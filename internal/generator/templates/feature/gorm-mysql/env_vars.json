@@ -1,0 +1,7 @@
+[
+  { "Key": "DB_HOST", "Value": "127.0.0.1" },
+  { "Key": "DB_PORT", "Value": "3306" },
+  { "Key": "DB_NAME", "Value": "genitz_db" },
+  { "Key": "DB_USER", "Value": "root" },
+  { "Key": "DB_PASSWORD", "Value": "" }
+]

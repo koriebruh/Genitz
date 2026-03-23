@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["_ github.com/golang-migrate/migrate/v4"],
+  "main_init": "",
+  "struct_inject": []
+}

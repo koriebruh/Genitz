@@ -1,0 +1,6 @@
+{
+  "target_dir": "",
+  "main_imports": ["_ github.com/go-sql-driver/mysql"],
+  "main_init": "",
+  "struct_inject": []
+}
