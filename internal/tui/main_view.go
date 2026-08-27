@@ -599,6 +599,7 @@ func (m *Model) viewReview() string {
 				b.WriteString(fmt.Sprintf("    %s %s  %s\n",
 					k, badge, styles.Description.Render(dep.ImportPath),
 				))
+				b.WriteString(fmt.Sprintf("      %s\n", styles.Description.Render("docs: "+docURL(dep.ImportPath))))
 			}
 			b.WriteRune('\n')
 		}

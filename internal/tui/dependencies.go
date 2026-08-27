@@ -81,6 +81,13 @@ type Dependency struct {
 	Description string
 }
 
+// docURL points at the package's pkg.go.dev page — it renders the module's
+// README plus its API docs, so it's a correct reference for any Go module
+// without having to hand-curate a doc link per registry entry.
+func docURL(importPath string) string {
+	return "https://pkg.go.dev/" + importPath
+}
+
 // DependencyRegistry is the list of selectable dependencies shown in StepDeps.
 var DependencyRegistry = []Dependency{
 	// ── Web / Routing ────────────────────────────────────────────

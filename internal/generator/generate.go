@@ -86,6 +86,7 @@ func GenerateNewProject(req Requirement) error {
 	}
 
 	fmt.Println("\n✅ Project scaffold complete! Happy hacking ✨")
+	printDocs(req.Deps)
 	return nil
 }
 
@@ -100,7 +101,31 @@ func AddDependencies(targetDir string, deps map[int]tui.Dependency) error {
 		return fmt.Errorf("go mod tidy: %w", err)
 	}
 	fmt.Println("\n✅ Dependencies installed ✨")
+	printDocs(deps)
 	return nil
+}
+
+// printDocs lists what got installed and where to read up on each one —
+// pkg.go.dev renders a module's README plus its API docs for any import
+// path, so it's a correct reference without hand-curating a link per dep.
+func printDocs(deps map[int]tui.Dependency) {
+	if len(deps) == 0 {
+		return
+	}
+
+	names := make([]string, 0, len(deps))
+	byName := make(map[string]tui.Dependency, len(deps))
+	for _, dep := range deps {
+		names = append(names, dep.Name)
+		byName[dep.Name] = dep
+	}
+	sort.Strings(names)
+
+	fmt.Println("\n📚 Documentation:")
+	for _, name := range names {
+		dep := byName[name]
+		fmt.Printf("   %-28s %s\n", dep.Name, "https://pkg.go.dev/"+dep.ImportPath)
+	}
 }
 
 // ReadModulePath reads the module directive from go.mod in dir.
