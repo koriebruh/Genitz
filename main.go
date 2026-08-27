@@ -10,40 +10,47 @@ import (
 )
 
 func main() {
-	// No go.mod in the current directory → scaffold a new project.
-	// go.mod present → add dependencies to the project already here.
-	module, err := generator.ReadModulePath(".")
-	addMode := err == nil
+	args := os.Args[1:]
 
-	var model *tui.Model
-	if addMode {
-		model = tui.AddModel(module)
-	} else {
-		model = tui.InitialModel()
-	}
-
-	// WithAltScreen renders into the terminal's alternate buffer — this prevents
-	// the "double logo" effect when the user zooms in/out in their terminal.
-	p := tea.NewProgram(model, tea.WithAltScreen())
-	m, err := p.Run()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+	switch {
+	case len(args) == 0:
+		// No subcommand — auto-detect: go.mod present in cwd means add
+		// dependencies, otherwise scaffold a new project.
+		if _, err := generator.ReadModulePath("."); err == nil {
+			runAdd()
+		} else {
+			runInit()
+		}
+	case args[0] == "init":
+		runInit()
+	case args[0] == "add":
+		runAdd()
+	case args[0] == "help", args[0] == "-h", args[0] == "--help":
+		printUsage()
+	default:
+		fmt.Printf("Unknown command %q\n\n", args[0])
+		printUsage()
 		os.Exit(1)
 	}
+}
 
-	finalModel := m.(*tui.Model)
+func printUsage() {
+	fmt.Println(`Genitz — Go project starter & dependency picker
 
-	// User pressed q/ctrl+c without confirming on the Review screen — abort.
+Usage:
+  genitz         Auto-detect: start a new project, or add dependencies if
+                 go.mod already exists in the current directory.
+  genitz init    Always start the new-project wizard.
+  genitz add     Add dependencies to the project in the current directory
+                 (requires an existing go.mod).
+  genitz help    Show this message.`)
+}
+
+// runInit walks the new-project wizard and scaffolds it.
+func runInit() {
+	finalModel := runProgram(tui.InitialModel())
 	if !finalModel.Done {
 		fmt.Println("\nCancelled.")
-		return
-	}
-
-	if addMode {
-		if err := generator.AddDependencies(".", finalModel.Chosen); err != nil {
-			fmt.Printf("\nGagal menambahkan dependency: %v\n", err)
-			os.Exit(1)
-		}
 		return
 	}
 
@@ -66,4 +73,38 @@ func main() {
 	}
 
 	fmt.Printf("\n📂 Project tersedia di: ./%s\n", req.ProjectName)
+}
+
+// runAdd walks the dependency picker and installs the chosen packages into
+// the Go module found in the current directory.
+func runAdd() {
+	module, err := generator.ReadModulePath(".")
+	if err != nil {
+		fmt.Println("\nGak ada go.mod di direktori ini. Jalanin `go mod init <module>` dulu, atau pakai `genitz init` buat project baru.")
+		os.Exit(1)
+	}
+
+	finalModel := runProgram(tui.AddModel(module))
+	if !finalModel.Done {
+		fmt.Println("\nCancelled.")
+		return
+	}
+
+	if err := generator.AddDependencies(".", finalModel.Chosen); err != nil {
+		fmt.Printf("\nGagal menambahkan dependency: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// runProgram runs the Bubble Tea wizard to completion and returns the final model.
+func runProgram(model *tui.Model) *tui.Model {
+	// WithAltScreen renders into the terminal's alternate buffer — this prevents
+	// the "double logo" effect when the user zooms in/out in their terminal.
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	m, err := p.Run()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	return m.(*tui.Model)
 }

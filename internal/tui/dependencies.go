@@ -24,6 +24,8 @@ const (
 	CatConfig        = "config"
 	CatMigration     = "migration"
 	CatUtility       = "utility"
+	CatCLI           = "cli"
+	CatQueue         = "queue"
 )
 
 // getBadgeStyle returns a coloured pill style for a given dependency category.
@@ -67,6 +69,10 @@ func getBadgeStyle(category string) lipgloss.Style {
 		return base.Background(lipgloss.Color("#37474F"))
 	case CatUtility:
 		return base.Background(lipgloss.Color("#009688"))
+	case CatCLI:
+		return base.Background(lipgloss.Color("#455A64"))
+	case CatQueue:
+		return base.Background(lipgloss.Color("#8D6E63"))
 	default:
 		return base.Background(lipgloss.Color("#222222"))
 	}
@@ -121,6 +127,21 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "google.golang.org/protobuf",
 		Description: "Protocol Buffers codegen runtime, pairs with gRPC",
 	},
+	{
+		ID: "gqlgen", Name: "gqlgen", Category: CatRPC,
+		ImportPath:  "github.com/99designs/gqlgen",
+		Description: "Schema-first GraphQL server generator",
+	},
+	{
+		ID: "gorilla-mux", Name: "Gorilla Mux", Category: CatFramework,
+		ImportPath:  "github.com/gorilla/mux",
+		Description: "Ubiquitous HTTP request router/dispatcher",
+	},
+	{
+		ID: "websocket", Name: "Gorilla WebSocket", Category: CatFramework,
+		ImportPath:  "github.com/gorilla/websocket",
+		Description: "WebSocket implementation for real-time connections",
+	},
 
 	// ── Database ─────────────────────────────────────────────────
 	{
@@ -132,6 +153,11 @@ var DependencyRegistry = []Dependency{
 		ID: "sqlx", Name: "sqlx", Category: CatORM,
 		ImportPath:  "github.com/jmoiron/sqlx",
 		Description: "database/sql extensions — struct scanning for raw queries",
+	},
+	{
+		ID: "bun", Name: "Bun", Category: CatORM,
+		ImportPath:  "github.com/uptrace/bun",
+		Description: "SQL-first ORM/query builder for Postgres, MySQL, SQLite",
 	},
 	{
 		ID: "mysql-driver", Name: "MySQL Driver", Category: CatDriver,
@@ -240,6 +266,35 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/spf13/viper",
 		Description: "Config management across files, env vars, and flags",
 	},
+	{
+		ID: "godotenv", Name: "godotenv", Category: CatConfig,
+		ImportPath:  "github.com/joho/godotenv",
+		Description: "Loads environment variables from a .env file",
+	},
+
+	// ── CLI Tools ────────────────────────────────────────────────
+	{
+		ID: "cobra", Name: "Cobra", Category: CatCLI,
+		ImportPath:  "github.com/spf13/cobra",
+		Description: "Modern CLI framework — commands, flags, subcommands",
+	},
+	{
+		ID: "urfave-cli", Name: "urfave/cli", Category: CatCLI,
+		ImportPath:  "github.com/urfave/cli/v3",
+		Description: "Simple, fast package for building CLI apps",
+	},
+
+	// ── Background Jobs ──────────────────────────────────────────
+	{
+		ID: "asynq", Name: "Asynq", Category: CatQueue,
+		ImportPath:  "github.com/hibiken/asynq",
+		Description: "Redis-backed distributed task queue",
+	},
+	{
+		ID: "river", Name: "River", Category: CatQueue,
+		ImportPath:  "github.com/riverqueue/river",
+		Description: "Postgres-backed background job queue",
+	},
 
 	// ── Utilities ────────────────────────────────────────────────
 	{
@@ -287,6 +342,31 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/stretchr/testify",
 		Description: "Testing toolkit — assertions, mocks, suites",
 	},
+	{
+		ID: "gomock", Name: "go.uber.org/mock", Category: CatUtility,
+		ImportPath:  "go.uber.org/mock",
+		Description: "Mocking framework for Go interfaces",
+	},
+	{
+		ID: "resty", Name: "Resty", Category: CatUtility,
+		ImportPath:  "github.com/go-resty/resty/v2",
+		Description: "Simple, chainable HTTP client",
+	},
+	{
+		ID: "go-money", Name: "go-money", Category: CatUtility,
+		ImportPath:  "github.com/Rhymond/go-money",
+		Description: "Money value type — safe currency arithmetic for finance",
+	},
+	{
+		ID: "excelize", Name: "Excelize", Category: CatUtility,
+		ImportPath:  "github.com/xuri/excelize/v2",
+		Description: "Read/write Excel .xlsx files — reports, exports",
+	},
+	{
+		ID: "copier", Name: "jinzhu/copier", Category: CatUtility,
+		ImportPath:  "github.com/jinzhu/copier",
+		Description: "Struct-to-struct field copying",
+	},
 }
 
 // depGroup is one category section in the dependency picker.
@@ -305,6 +385,8 @@ var depGroups = []depGroup{
 	{"Security", []string{CatAuth}},
 	{"Dependency Injection", []string{CatDI}},
 	{"Configuration", []string{CatConfig}},
+	{"CLI Tools", []string{CatCLI}},
+	{"Background Jobs", []string{CatQueue}},
 	{"Utilities", []string{CatValidation, CatDoc, CatUtility}},
 }
 
