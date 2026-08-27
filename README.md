@@ -25,11 +25,12 @@ picker → review → confirm → real `go get` runs → doc links printed.*
 - **Two flows, one binary.** No `go.mod` in the current directory → new
   project wizard. `go.mod` already there → straight to the dependency
   picker. `genitz init` / `genitz add` force either flow explicitly.
-- **67 dependencies across 13 categories** — web frameworks, ORMs, raw SQL
-  and NoSQL drivers, message brokers, observability, auth, dependency
+- **85 dependencies across 16 categories** — web frameworks, ORMs, raw SQL
+  and NoSQL/search drivers, message brokers, observability, auth, dependency
   injection, config loaders, CLI-building libraries, background job queues,
-  blockchain SDKs, cloud SDKs, and general utilities. See the [full list](#dependency-registry)
-  below.
+  blockchain SDKs, cloud/infra SDKs, payments, testing, desktop & game dev,
+  and general utilities. Whatever corner of Go you work in, it should be in
+  here. See the [full list](#dependency-registry) below.
 - **Collapsible picker, not a wall of text.** Categories collapse to one
   line by default; open one at a time, with a live "(N selected)" count so a
   choice is never hidden. Type `/` to search across everything at once.
@@ -100,12 +101,12 @@ already exists. Runs `go get` + `go mod tidy` when you confirm.
 ## Dependency registry
 
 <details>
-<summary>All 67 packages, grouped (click to expand)</summary>
+<summary>All 85 packages, grouped (click to expand)</summary>
 
 | Group | Packages |
 |---|---|
-| Web / Routing | Fiber, Gin Gonic, Echo, Chi, gRPC, Protocol Buffers, gqlgen, Gorilla Mux, Gorilla WebSocket |
-| Database | GORM, sqlx, Bun, MySQL Driver, pgx (PostgreSQL), MongoDB Driver, gocql (Cassandra), Elasticsearch, AWS DynamoDB, etcd, Badger, Neo4j, golang-migrate |
+| Web / Routing | Fiber, Gin Gonic, Echo, Chi, gRPC, Protocol Buffers, gqlgen, Gorilla Mux, Gorilla WebSocket, Alice |
+| Database | GORM, sqlx, Bun, MySQL Driver, pgx (PostgreSQL), MongoDB Driver, gocql (Cassandra), Elasticsearch, AWS DynamoDB, etcd, Badger, Neo4j, Bleve, golang-migrate |
 | Cache | redis |
 | Messaging | kafka-go, NATS, RabbitMQ (amqp091) |
 | Observability | Uber Zap, Logrus, Zerolog, OpenTelemetry, Prometheus client |
@@ -115,8 +116,11 @@ already exists. Runs `go get` + `go mod tidy` when you confirm.
 | CLI Tools | Cobra, urfave/cli |
 | Background Jobs | Asynq, River |
 | Blockchain | go-ethereum, solana-go, btcd, Cosmos SDK, Hyperledger Fabric SDK, CometBFT |
-| Cloud SDKs | AWS SDK v2, Google Cloud SDK, Azure SDK, MinIO client |
-| Utilities | go playground validator, Swaggo, Google UUID, shopspring decimal, oklog/run, robfig/cron, golang.org/x/time, sony/gobreaker, testify, go.uber.org/mock, Resty, go-money, Excelize, jinzhu/copier, msgpack |
+| Cloud & Infra SDKs | AWS SDK v2, Google Cloud SDK, Azure SDK, MinIO client, client-go (Kubernetes), Consul API, Vault API, Docker client |
+| Payments | Stripe |
+| Testing | testify, go.uber.org/mock, Ginkgo, Gomega, gofakeit |
+| Desktop & Game Dev | Fyne, Ebiten |
+| Utilities | go playground validator, Swaggo, Google UUID, shopspring decimal, oklog/run, robfig/cron, golang.org/x/time, sony/gobreaker, Resty, go-money, Excelize, jinzhu/copier, msgpack, golang.org/x/sync, mapstructure, Sprig, gocsv, go-mail, gofpdf |
 
 </details>
 

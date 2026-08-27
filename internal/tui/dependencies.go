@@ -28,6 +28,9 @@ const (
 	CatQueue         = "queue"
 	CatBlockchain    = "blockchain"
 	CatCloud         = "cloud"
+	CatTesting       = "testing"
+	CatGUI           = "gui"
+	CatPayment       = "payment"
 )
 
 // getBadgeStyle returns a coloured pill style for a given dependency category.
@@ -79,6 +82,12 @@ func getBadgeStyle(category string) lipgloss.Style {
 		return base.Background(lipgloss.Color("#627EEA"))
 	case CatCloud:
 		return base.Background(lipgloss.Color("#FF9900"))
+	case CatTesting:
+		return base.Background(lipgloss.Color("#EF6C00"))
+	case CatGUI:
+		return base.Background(lipgloss.Color("#5C6BC0"))
+	case CatPayment:
+		return base.Background(lipgloss.Color("#00C853"))
 	default:
 		return base.Background(lipgloss.Color("#222222"))
 	}
@@ -148,6 +157,11 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/gorilla/websocket",
 		Description: "WebSocket implementation for real-time connections",
 	},
+	{
+		ID: "alice", Name: "Alice", Category: CatFramework,
+		ImportPath:  "github.com/justinas/alice",
+		Description: "Painless net/http middleware chaining",
+	},
 
 	// ── Database ─────────────────────────────────────────────────
 	{
@@ -209,6 +223,11 @@ var DependencyRegistry = []Dependency{
 		ID: "neo4j", Name: "Neo4j", Category: CatDriver,
 		ImportPath:  "github.com/neo4j/neo4j-go-driver/v5",
 		Description: "Neo4j graph database driver",
+	},
+	{
+		ID: "bleve", Name: "Bleve", Category: CatDriver,
+		ImportPath:  "github.com/blevesearch/bleve/v2",
+		Description: "Embedded full-text search engine, pure Go",
 	},
 	{
 		ID: "migrate", Name: "golang-migrate", Category: CatMigration,
@@ -361,6 +380,26 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/minio/minio-go/v7",
 		Description: "S3-compatible object storage client",
 	},
+	{
+		ID: "k8s-client", Name: "client-go", Category: CatCloud,
+		ImportPath:  "k8s.io/client-go",
+		Description: "Official Kubernetes API client",
+	},
+	{
+		ID: "consul", Name: "Consul API", Category: CatCloud,
+		ImportPath:  "github.com/hashicorp/consul/api",
+		Description: "Service discovery and distributed config client",
+	},
+	{
+		ID: "vault", Name: "Vault API", Category: CatCloud,
+		ImportPath:  "github.com/hashicorp/vault/api",
+		Description: "Secrets management client",
+	},
+	{
+		ID: "docker-client", Name: "Docker client", Category: CatCloud,
+		ImportPath:  "github.com/docker/docker/client",
+		Description: "Docker Engine API client",
+	},
 
 	// ── CLI Tools ────────────────────────────────────────────────
 	{
@@ -384,6 +423,52 @@ var DependencyRegistry = []Dependency{
 		ID: "river", Name: "River", Category: CatQueue,
 		ImportPath:  "github.com/riverqueue/river",
 		Description: "Postgres-backed background job queue",
+	},
+
+	// ── Payments ─────────────────────────────────────────────────
+	{
+		ID: "stripe-go", Name: "Stripe", Category: CatPayment,
+		ImportPath:  "github.com/stripe/stripe-go/v81",
+		Description: "Stripe payments API client",
+	},
+
+	// ── Testing ──────────────────────────────────────────────────
+	{
+		ID: "testify", Name: "testify", Category: CatTesting,
+		ImportPath:  "github.com/stretchr/testify",
+		Description: "Testing toolkit — assertions, mocks, suites",
+	},
+	{
+		ID: "gomock", Name: "go.uber.org/mock", Category: CatTesting,
+		ImportPath:  "go.uber.org/mock",
+		Description: "Mocking framework for Go interfaces",
+	},
+	{
+		ID: "ginkgo", Name: "Ginkgo", Category: CatTesting,
+		ImportPath:  "github.com/onsi/ginkgo/v2",
+		Description: "BDD-style testing framework",
+	},
+	{
+		ID: "gomega", Name: "Gomega", Category: CatTesting,
+		ImportPath:  "github.com/onsi/gomega",
+		Description: "Matcher/assertion library, pairs with Ginkgo",
+	},
+	{
+		ID: "gofakeit", Name: "gofakeit", Category: CatTesting,
+		ImportPath:  "github.com/brianvoe/gofakeit/v7",
+		Description: "Fake/random test data generator",
+	},
+
+	// ── Desktop & Game Dev ───────────────────────────────────────
+	{
+		ID: "fyne", Name: "Fyne", Category: CatGUI,
+		ImportPath:  "fyne.io/fyne/v2",
+		Description: "Cross-platform desktop/mobile GUI toolkit",
+	},
+	{
+		ID: "ebiten", Name: "Ebiten", Category: CatGUI,
+		ImportPath:  "github.com/hajimehoshi/ebiten/v2",
+		Description: "Simple, fast 2D game engine",
 	},
 
 	// ── Utilities ────────────────────────────────────────────────
@@ -428,16 +513,6 @@ var DependencyRegistry = []Dependency{
 		Description: "Circuit breaker pattern for fault-tolerant calls",
 	},
 	{
-		ID: "testify", Name: "testify", Category: CatUtility,
-		ImportPath:  "github.com/stretchr/testify",
-		Description: "Testing toolkit — assertions, mocks, suites",
-	},
-	{
-		ID: "gomock", Name: "go.uber.org/mock", Category: CatUtility,
-		ImportPath:  "go.uber.org/mock",
-		Description: "Mocking framework for Go interfaces",
-	},
-	{
 		ID: "resty", Name: "Resty", Category: CatUtility,
 		ImportPath:  "github.com/go-resty/resty/v2",
 		Description: "Simple, chainable HTTP client",
@@ -462,6 +537,36 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/vmihailenco/msgpack/v5",
 		Description: "Compact binary serialization — faster/smaller than JSON",
 	},
+	{
+		ID: "x-sync", Name: "golang.org/x/sync", Category: CatUtility,
+		ImportPath:  "golang.org/x/sync",
+		Description: "errgroup, singleflight, semaphore — concurrency helpers",
+	},
+	{
+		ID: "mapstructure", Name: "mapstructure", Category: CatUtility,
+		ImportPath:  "github.com/mitchellh/mapstructure",
+		Description: "Decode generic maps into structs",
+	},
+	{
+		ID: "sprig", Name: "Sprig", Category: CatUtility,
+		ImportPath:  "github.com/Masterminds/sprig/v3",
+		Description: "100+ helper functions for text/template and html/template",
+	},
+	{
+		ID: "gocsv", Name: "gocsv", Category: CatUtility,
+		ImportPath:  "github.com/gocarina/gocsv",
+		Description: "Struct-based CSV marshal/unmarshal",
+	},
+	{
+		ID: "go-mail", Name: "go-mail", Category: CatUtility,
+		ImportPath:  "github.com/wneessen/go-mail",
+		Description: "Modern SMTP email client",
+	},
+	{
+		ID: "gofpdf", Name: "gofpdf", Category: CatUtility,
+		ImportPath:  "github.com/jung-kurt/gofpdf",
+		Description: "PDF generation — invoices, reports",
+	},
 }
 
 // depGroup is one category section in the dependency picker.
@@ -484,6 +589,9 @@ var depGroups = []depGroup{
 	{"Background Jobs", []string{CatQueue}},
 	{"Blockchain", []string{CatBlockchain}},
 	{"Cloud SDKs", []string{CatCloud}},
+	{"Payments", []string{CatPayment}},
+	{"Testing", []string{CatTesting}},
+	{"Desktop & Game Dev", []string{CatGUI}},
 	{"Utilities", []string{CatValidation, CatDoc, CatUtility}},
 }
 
