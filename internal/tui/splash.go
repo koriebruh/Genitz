@@ -108,17 +108,16 @@ func RenderHeader() string {
 	return sb.String()
 }
 
-// RenderHeaderCompact returns a single branded line without the ASCII art.
-// Used when terminal height is between 20–27.
-func RenderHeaderCompact() string {
+// RenderHeaderCompact returns a single branded line without the ASCII art,
+// truncated to fit terminal width w. The caller draws its own divider below
+// it, so this only ever emits one line — used when the terminal is too
+// short or too narrow for the full logo.
+func RenderHeaderCompact(w int) string {
 	brand := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#A855F7")).Bold(true).
 		Render("GENITZ")
 	sub := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6B7280")).
 		Render("  go project initializer · v0.1.0")
-	div := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#2D1B69")).
-		Render(strings.Repeat("━", splashLogoWidth))
-	return "  " + brand + sub + "\n" + div + "\n\n"
+	return lipgloss.NewStyle().MaxWidth(w).Render("  "+brand+sub) + "\n\n"
 }

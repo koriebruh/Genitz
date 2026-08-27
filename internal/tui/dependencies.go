@@ -20,6 +20,10 @@ const (
 	CatAuth          = "auth"
 	CatValidation    = "validation"
 	CatDoc           = "documentation"
+	CatDI            = "di"
+	CatConfig        = "config"
+	CatMigration     = "migration"
+	CatUtility       = "utility"
 )
 
 // getBadgeStyle returns a coloured pill style for a given dependency category.
@@ -55,6 +59,14 @@ func getBadgeStyle(category string) lipgloss.Style {
 		return base.Background(lipgloss.Color("#8BC34A"))
 	case CatDoc:
 		return base.Background(lipgloss.Color("#3F51B5"))
+	case CatDI:
+		return base.Background(lipgloss.Color("#9C27B0"))
+	case CatConfig:
+		return base.Background(lipgloss.Color("#795548"))
+	case CatMigration:
+		return base.Background(lipgloss.Color("#37474F"))
+	case CatUtility:
+		return base.Background(lipgloss.Color("#009688"))
 	default:
 		return base.Background(lipgloss.Color("#222222"))
 	}
@@ -66,51 +78,207 @@ type Dependency struct {
 	Name        string
 	Category    string
 	ImportPath  string
-	IsDefault   bool
-	Requires    []string
 	Description string
-	TemplateDir string
 }
-
-var depsPath = "internal/generator/templetes/feature/%s"
 
 // DependencyRegistry is the list of selectable dependencies shown in StepDeps.
 var DependencyRegistry = []Dependency{
-	{
-		ID: "redis", Name: "redis", Category: CatCache,
-		ImportPath:  "github.com/redis/go-redis/v9",
-		Description: "Redis client for Go",
-		TemplateDir: fmt.Sprintf(depsPath, "redis"),
-	},
-	{
-		ID: "validator", Name: "go playground validator", Category: CatValidation,
-		ImportPath:  "github.com/go-playground/validator/v10",
-		Description: "Struct and field validation via struct tags",
-		TemplateDir: fmt.Sprintf(depsPath, "validator"),
-	},
+	// ── Web / Routing ────────────────────────────────────────────
 	{
 		ID: "fiber", Name: "Fiber", Category: CatFramework,
 		ImportPath:  "github.com/gofiber/fiber/v3",
 		Description: "Express-inspired web framework written in Go",
-		TemplateDir: fmt.Sprintf(depsPath, "fiber"),
 	},
 	{
 		ID: "gin", Name: "Gin Gonic", Category: CatFramework,
 		ImportPath:  "github.com/gin-gonic/gin",
 		Description: "High-performance HTTP web framework",
-		TemplateDir: "",
 	},
+	{
+		ID: "echo", Name: "Echo", Category: CatFramework,
+		ImportPath:  "github.com/labstack/echo/v4",
+		Description: "Minimalist, high-performance web framework",
+	},
+	{
+		ID: "chi", Name: "Chi", Category: CatFramework,
+		ImportPath:  "github.com/go-chi/chi/v5",
+		Description: "Lightweight, idiomatic, composable HTTP router",
+	},
+	{
+		ID: "grpc", Name: "gRPC", Category: CatRPC,
+		ImportPath:  "google.golang.org/grpc",
+		Description: "High-performance RPC framework for service-to-service calls",
+	},
+	{
+		ID: "protobuf", Name: "Protocol Buffers", Category: CatRPC,
+		ImportPath:  "google.golang.org/protobuf",
+		Description: "Protocol Buffers codegen runtime, pairs with gRPC",
+	},
+
+	// ── Database ─────────────────────────────────────────────────
 	{
 		ID: "gorm", Name: "GORM", Category: CatORM,
 		ImportPath:  "gorm.io/gorm",
 		Description: "The fantastic ORM library for Golang",
-		TemplateDir: "",
 	},
+	{
+		ID: "sqlx", Name: "sqlx", Category: CatORM,
+		ImportPath:  "github.com/jmoiron/sqlx",
+		Description: "database/sql extensions — struct scanning for raw queries",
+	},
+	{
+		ID: "mysql-driver", Name: "MySQL Driver", Category: CatDriver,
+		ImportPath:  "github.com/go-sql-driver/mysql",
+		Description: "MySQL driver for database/sql — raw query access",
+	},
+	{
+		ID: "postgres-driver", Name: "pgx (PostgreSQL)", Category: CatDriver,
+		ImportPath:  "github.com/jackc/pgx/v5",
+		Description: "PostgreSQL driver/toolkit — raw query access",
+	},
+	{
+		ID: "mongo-driver", Name: "MongoDB Driver", Category: CatDriver,
+		ImportPath:  "go.mongodb.org/mongo-driver",
+		Description: "Official MongoDB driver — NoSQL document store",
+	},
+	{
+		ID: "migrate", Name: "golang-migrate", Category: CatMigration,
+		ImportPath:  "github.com/golang-migrate/migrate/v4",
+		Description: "Database schema migrations (MySQL, Postgres, Mongo, ...)",
+	},
+
+	// ── Cache ────────────────────────────────────────────────────
+	{
+		ID: "redis", Name: "redis", Category: CatCache,
+		ImportPath:  "github.com/redis/go-redis/v9",
+		Description: "Redis client — cache, sessions, or NoSQL key-value store",
+	},
+
+	// ── Messaging ────────────────────────────────────────────────
+	{
+		ID: "kafka-go", Name: "kafka-go", Category: CatMessageBroker,
+		ImportPath:  "github.com/segmentio/kafka-go",
+		Description: "Kafka client library for event streaming",
+	},
+	{
+		ID: "nats", Name: "NATS", Category: CatMessageBroker,
+		ImportPath:  "github.com/nats-io/nats.go",
+		Description: "Lightweight, high-throughput pub/sub messaging",
+	},
+	{
+		ID: "rabbitmq", Name: "RabbitMQ (amqp091)", Category: CatMessageBroker,
+		ImportPath:  "github.com/rabbitmq/amqp091-go",
+		Description: "AMQP 0-9-1 client for RabbitMQ — reliable queues",
+	},
+
+	// ── Observability ────────────────────────────────────────────
 	{
 		ID: "zap", Name: "Uber Zap", Category: CatLogger,
 		ImportPath:  "go.uber.org/zap",
 		Description: "Blazing fast, structured, leveled logging",
-		TemplateDir: "",
+	},
+	{
+		ID: "logrus", Name: "Logrus", Category: CatLogger,
+		ImportPath:  "github.com/sirupsen/logrus",
+		Description: "Structured, pluggable logging",
+	},
+	{
+		ID: "zerolog", Name: "Zerolog", Category: CatLogger,
+		ImportPath:  "github.com/rs/zerolog",
+		Description: "Zero-allocation JSON logger",
+	},
+	{
+		ID: "otel", Name: "OpenTelemetry", Category: CatTracing,
+		ImportPath:  "go.opentelemetry.io/otel",
+		Description: "Distributed tracing and metrics instrumentation API",
+	},
+	{
+		ID: "prometheus", Name: "Prometheus client", Category: CatMetrics,
+		ImportPath:  "github.com/prometheus/client_golang",
+		Description: "Prometheus metrics client for exposing /metrics",
+	},
+
+	// ── Security ─────────────────────────────────────────────────
+	{
+		ID: "jwt", Name: "golang-jwt", Category: CatAuth,
+		ImportPath:  "github.com/golang-jwt/jwt/v5",
+		Description: "JSON Web Token creation and verification",
+	},
+	{
+		ID: "crypto", Name: "golang.org/x/crypto", Category: CatAuth,
+		ImportPath:  "golang.org/x/crypto",
+		Description: "Password hashing (bcrypt) and extended cryptography",
+	},
+	{
+		ID: "casbin", Name: "Casbin", Category: CatAuth,
+		ImportPath:  "github.com/casbin/casbin/v2",
+		Description: "Authorization library — RBAC/ABAC access control",
+	},
+
+	// ── Dependency Injection ─────────────────────────────────────
+	{
+		ID: "dig", Name: "Uber Dig", Category: CatDI,
+		ImportPath:  "go.uber.org/dig",
+		Description: "Reflection-based dependency injection container",
+	},
+	{
+		ID: "wire", Name: "Google Wire", Category: CatDI,
+		ImportPath:  "github.com/google/wire",
+		Description: "Compile-time dependency injection code generator",
+	},
+
+	// ── Configuration ────────────────────────────────────────────
+	{
+		ID: "viper", Name: "Viper", Category: CatConfig,
+		ImportPath:  "github.com/spf13/viper",
+		Description: "Config management across files, env vars, and flags",
+	},
+
+	// ── Utilities ────────────────────────────────────────────────
+	{
+		ID: "validator", Name: "go playground validator", Category: CatValidation,
+		ImportPath:  "github.com/go-playground/validator/v10",
+		Description: "Struct and field validation via struct tags",
+	},
+	{
+		ID: "swag", Name: "Swaggo", Category: CatDoc,
+		ImportPath:  "github.com/swaggo/swag",
+		Description: "Generates Swagger 2.0 docs from Go annotations",
+	},
+	{
+		ID: "uuid", Name: "Google UUID", Category: CatUtility,
+		ImportPath:  "github.com/google/uuid",
+		Description: "UUID generation",
+	},
+	{
+		ID: "decimal", Name: "shopspring decimal", Category: CatUtility,
+		ImportPath:  "github.com/shopspring/decimal",
+		Description: "Arbitrary-precision decimal — safe money/finance math",
+	},
+	{
+		ID: "run", Name: "oklog/run", Category: CatUtility,
+		ImportPath:  "github.com/oklog/run",
+		Description: "Actor-group lifecycle — coordinated graceful shutdown",
+	},
+	{
+		ID: "cron", Name: "robfig/cron", Category: CatUtility,
+		ImportPath:  "github.com/robfig/cron/v3",
+		Description: "Cron-style job scheduler",
+	},
+	{
+		ID: "ratelimit", Name: "golang.org/x/time", Category: CatUtility,
+		ImportPath:  "golang.org/x/time",
+		Description: "Token-bucket rate limiting",
+	},
+	{
+		ID: "gobreaker", Name: "sony/gobreaker", Category: CatUtility,
+		ImportPath:  "github.com/sony/gobreaker",
+		Description: "Circuit breaker pattern for fault-tolerant calls",
+	},
+	{
+		ID: "testify", Name: "testify", Category: CatUtility,
+		ImportPath:  "github.com/stretchr/testify",
+		Description: "Testing toolkit — assertions, mocks, suites",
 	},
 }
 
@@ -120,12 +288,14 @@ var depGroups = []struct {
 	categories []string
 }{
 	{"Web / Routing", []string{CatFramework, CatRPC}},
-	{"Database", []string{CatORM, CatDriver}},
+	{"Database", []string{CatORM, CatDriver, CatMigration}},
 	{"Cache", []string{CatCache}},
 	{"Messaging", []string{CatMessageBroker}},
 	{"Observability", []string{CatLogger, CatTracing, CatMetrics}},
 	{"Security", []string{CatAuth}},
-	{"Utilities", []string{CatValidation, CatDoc}},
+	{"Dependency Injection", []string{CatDI}},
+	{"Configuration", []string{CatConfig}},
+	{"Utilities", []string{CatValidation, CatDoc, CatUtility}},
 }
 
 // groupHeaderStyle is the amber label rendered above each category section.

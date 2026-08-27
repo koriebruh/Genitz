@@ -1,5 +1,0 @@
-{
-  "target_dir": "config",
-  "config_field": "Fiber FiberConfig",
-  "config_init": "Fiber: LoadFiberConfig(),"
-}

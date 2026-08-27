@@ -10,9 +10,21 @@ import (
 )
 
 func main() {
+	// No go.mod in the current directory → scaffold a new project.
+	// go.mod present → add dependencies to the project already here.
+	module, err := generator.ReadModulePath(".")
+	addMode := err == nil
+
+	var model *tui.Model
+	if addMode {
+		model = tui.AddModel(module)
+	} else {
+		model = tui.InitialModel()
+	}
+
 	// WithAltScreen renders into the terminal's alternate buffer — this prevents
 	// the "double logo" effect when the user zooms in/out in their terminal.
-	p := tea.NewProgram(tui.InitialModel(), tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen())
 	m, err := p.Run()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -24,6 +36,14 @@ func main() {
 	// User pressed q/ctrl+c without confirming on the Review screen — abort.
 	if !finalModel.Done {
 		fmt.Println("\nCancelled.")
+		return
+	}
+
+	if addMode {
+		if err := generator.AddDependencies(".", finalModel.Chosen); err != nil {
+			fmt.Printf("\nGagal menambahkan dependency: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 

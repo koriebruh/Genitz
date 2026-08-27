@@ -13,11 +13,15 @@ import (
 // stepDef defines a single entry in the top step navigation bar.
 type stepDef struct{ num, label string }
 
-var wizardSteps = []stepDef{
+var initSteps = []stepDef{
 	{"①", "Project"},
-	{"②", "Architecture"},
-	{"③", "Dependencies"},
-	{"④", "Review"},
+	{"②", "Dependencies"},
+	{"③", "Review"},
+}
+
+var addSteps = []stepDef{
+	{"①", "Dependencies"},
+	{"②", "Review"},
 }
 
 // keyHint is a keyboard shortcut + action description pair for the footer.
@@ -25,17 +29,17 @@ type keyHint struct{ key, action string }
 
 // Model is the root Bubble Tea model for the Genitz TUI wizard.
 type Model struct {
+	Mode Mode
 	Step Step
 
-	// Project info inputs + inline validation errors.
+	// Project info inputs + inline validation errors. Only used in ModeInit.
 	FolderInput textinput.Model
 	FolderErr   string
 	PkgInput    textinput.Model
 	PkgErr      string
 
-	ArchOptions  []string
-	ArchCursor   int
-	SelectedArch string
+	// ExistingModule is the module path read from ./go.mod. Only set in ModeAdd.
+	ExistingModule string
 
 	Registry []Dependency
 	Chosen   map[int]Dependency
@@ -53,7 +57,7 @@ type Model struct {
 	Done bool
 }
 
-// InitialModel constructs the initial model starting at StepFolder.
+// InitialModel constructs the model for scaffolding a brand-new project.
 func InitialModel() *Model {
 	f := textinput.New()
 	f.Placeholder = "my-awesome-app"
@@ -65,12 +69,24 @@ func InitialModel() *Model {
 	p.CharLimit = 128
 
 	return &Model{
+		Mode:        ModeInit,
 		Step:        StepFolder,
 		FolderInput: f,
 		PkgInput:    p,
-		ArchOptions: []string{ArchMicro, ArchClean, ArchStandard, ArchDDD, ArchCLI},
 		Registry:    DependencyRegistry,
 		Chosen:      make(map[int]Dependency),
+	}
+}
+
+// AddModel constructs the model for adding dependencies to the project
+// found in the current directory, whose module path is existingModule.
+func AddModel(existingModule string) *Model {
+	return &Model{
+		Mode:           ModeAdd,
+		Step:           StepDeps,
+		ExistingModule: existingModule,
+		Registry:       DependencyRegistry,
+		Chosen:         make(map[int]Dependency),
 	}
 }
 
@@ -105,8 +121,6 @@ func (m *Model) View() string {
 		content = m.viewFolder()
 	case m.Step == StepPackage:
 		content = m.viewPackage()
-	case m.Step == StepArch:
-		content = m.viewArchitecture()
 	case m.Step == StepDeps:
 		content = m.renderDependencyView()
 	case m.Step == StepReview:
@@ -116,25 +130,44 @@ func (m *Model) View() string {
 }
 
 // renderFrame wraps panel content with an adaptive header, step nav, and divider.
-// The header shrinks or disappears based on terminal height to prevent double
-// rendering when the user zooms in/out (always use tea.WithAltScreen).
+// Bubble Tea in alt-screen mode clips anything past the terminal width instead
+// of soft-wrapping it, so every piece here is picked or reflowed against the
+// real terminal size instead of only reacting to height (always use tea.WithAltScreen).
 func (m *Model) renderFrame(content string) string {
-	var b strings.Builder
-
-	switch {
-	case m.Height == 0 || m.Height >= 28:
-		// Height 0 means we haven't received WindowSizeMsg yet — show full header.
-		b.WriteString(RenderHeader())
-	case m.Height >= 18:
-		b.WriteString(RenderHeaderCompact())
-		// Below 18: skip header entirely, maximise content space.
+	w := m.Width
+	if w <= 0 {
+		w = 80 // no WindowSizeMsg yet — assume a normal-sized terminal for the first paint.
 	}
 
-	b.WriteString(m.renderStepNav())
-	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(m.Width))))
+	var b strings.Builder
+	b.WriteString(m.renderHeader(w))
+	b.WriteString(m.renderStepNav(w))
+	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(w))))
 	b.WriteString("\n\n")
-	b.WriteString(styles.Container.Render(content))
+
+	pad := 3
+	if w < 50 {
+		pad = 1
+	}
+	box := styles.Container.Padding(0, pad).Width(w)
+	b.WriteString(box.Render(content))
 	return b.String()
+}
+
+// renderHeader picks the full logo, the one-line compact brand, or nothing,
+// based on how much room the terminal actually has.
+func (m *Model) renderHeader(w int) string {
+	full := m.Height == 0 || m.Height >= 28
+	compactOK := m.Height == 0 || m.Height >= 14
+
+	switch {
+	case full && w >= splashLogoWidth+6:
+		return RenderHeader()
+	case compactOK && w >= 30:
+		return RenderHeaderCompact(w)
+	default:
+		return ""
+	}
 }
 
 // dividerWidth returns the horizontal rule length clamped to terminal width.
@@ -153,39 +186,71 @@ func dividerWidth(w int) int {
 	return n
 }
 
-// renderStepNav renders the ① Project ── ② Architecture … bar.
-func (m *Model) renderStepNav() string {
-	current := m.stepIndex()
-	var b strings.Builder
-	b.WriteString("  ")
-	for i, step := range wizardSteps {
-		switch {
-		case i < current:
-			b.WriteString(styles.StepDone.Render("✓ " + step.label))
-		case i == current:
-			b.WriteString(styles.StepActive.Render(step.num + " " + step.label))
-		default:
-			b.WriteString(styles.StepPending.Render(step.num + " " + step.label))
-		}
-		if i < len(wizardSteps)-1 {
-			b.WriteString(styles.StepSep.Render("  ──  "))
-		}
+// wizardSteps returns the step nav entries for the model's current mode.
+func (m *Model) wizardSteps() []stepDef {
+	if m.Mode == ModeAdd {
+		return addSteps
 	}
-	b.WriteString("\n\n")
-	return b.String()
+	return initSteps
 }
 
-// stepIndex maps the current Step to the 0-based index into wizardSteps.
+// renderStepNav renders the ① Project ── ② Dependencies … bar. Below 55
+// columns the text labels are dropped in favour of bare step numbers so the
+// bar never gets clipped by the terminal.
+func (m *Model) renderStepNav(w int) string {
+	steps := m.wizardSteps()
+	current := m.stepIndex()
+	compact := w < 55
+
+	var line strings.Builder
+	line.WriteString("  ")
+	for i, step := range steps {
+		label := step.num + " " + step.label
+		if compact {
+			label = step.num
+		}
+		switch {
+		case i < current:
+			if compact {
+				line.WriteString(styles.StepDone.Render("✓"))
+			} else {
+				line.WriteString(styles.StepDone.Render("✓ " + step.label))
+			}
+		case i == current:
+			line.WriteString(styles.StepActive.Render(label))
+		default:
+			line.WriteString(styles.StepPending.Render(label))
+		}
+		if i < len(steps)-1 {
+			sep := "  ──  "
+			if compact {
+				sep = " ─ "
+			}
+			line.WriteString(styles.StepSep.Render(sep))
+		}
+	}
+	// Safety net: even the compact form can't overflow the real terminal.
+	return lipgloss.NewStyle().MaxWidth(w).Render(line.String()) + "\n\n"
+}
+
+// stepIndex maps the current Step to the 0-based index into wizardSteps().
 func (m *Model) stepIndex() int {
+	if m.Mode == ModeAdd {
+		switch m.Step {
+		case StepDeps:
+			return 0
+		case StepReview:
+			return 1
+		}
+		return 0
+	}
 	switch m.Step {
 	case StepFolder, StepPackage:
 		return 0
-	case StepArch:
-		return 1
 	case StepDeps:
-		return 2
+		return 1
 	case StepReview:
-		return 3
+		return 2
 	}
 	return 0
 }
@@ -246,8 +311,6 @@ func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return m.handleFolderKeys(msg)
 	case StepPackage:
 		return m.handlePackageKeys(msg)
-	case StepArch:
-		return m.handleArchKeys(msg)
 	case StepDeps:
 		return m.handleDepsKeys(msg)
 	case StepReview:
@@ -295,33 +358,11 @@ func (m *Model) handlePackageKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		m.PkgErr = ""
 		m.PkgInput.Blur()
-		m.Step = StepArch
-		return nil, true
-	}
-	m.PkgErr = ""
-	return nil, false
-}
-
-func (m *Model) handleArchKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
-	switch msg.String() {
-	case "up", "k":
-		if m.ArchCursor > 0 {
-			m.ArchCursor--
-		}
-		return nil, true
-	case "down", "j":
-		if m.ArchCursor < len(m.ArchOptions)-1 {
-			m.ArchCursor++
-		}
-		return nil, true
-	case "enter":
-		m.SelectedArch = m.ArchOptions[m.ArchCursor]
 		m.Step = StepDeps
 		m.Cursor = 0
 		return nil, true
-	case "q":
-		return tea.Quit, true
 	}
+	m.PkgErr = ""
 	return nil, false
 }
 
@@ -483,33 +524,6 @@ func (m *Model) viewPackage() string {
 	return b.String()
 }
 
-func (m *Model) viewArchitecture() string {
-	var b strings.Builder
-	b.WriteString(styles.PanelLabel.Render("ARCHITECTURE") + "\n")
-	b.WriteString(styles.PanelHint.Render("Choose the project structure template") + "\n\n")
-
-	for i, opt := range m.ArchOptions {
-		isActive := m.ArchCursor == i
-		cursor := "   "
-		var name string
-		if isActive {
-			cursor = styles.Cursor.Render(" ▶ ")
-			name = styles.Selected.Render(opt)
-		} else {
-			name = styles.Name.Render(opt)
-		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, name))
-		b.WriteString(fmt.Sprintf("     %s\n\n", styles.Description.Render(archDescriptions[opt])))
-	}
-
-	b.WriteString(renderKeyHints([]keyHint{
-		{"↑↓ / jk", "navigate"},
-		{"enter", "select"},
-		{"q", "quit"},
-	}))
-	return b.String()
-}
-
 // viewReview renders a clean two-section summary before generation.
 func (m *Model) viewReview() string {
 	var b strings.Builder
@@ -517,21 +531,14 @@ func (m *Model) viewReview() string {
 	b.WriteString(styles.PanelLabel.Render("REVIEW") + "\n")
 	b.WriteString(styles.PanelHint.Render("Confirm your configuration before scaffolding") + "\n\n")
 
-	folder := m.FolderInput.Value()
-	if folder == "" {
-		folder = "(not set)"
-	}
-	pkg := m.PkgInput.Value()
-	if pkg == "" {
-		pkg = "(not set)"
-	}
-	arch := m.SelectedArch
-	if arch == "" {
-		arch = "(not set)"
-	}
-
 	const keyW = 16
-	hr := styles.Divider.Render(strings.Repeat("─", 52)) + "\n"
+	hrWidth := m.Width - 8
+	if hrWidth > 52 {
+		hrWidth = 52
+	} else if hrWidth < 20 {
+		hrWidth = 20
+	}
+	hr := styles.Divider.Render(strings.Repeat("─", hrWidth)) + "\n"
 
 	summaryRow := func(key, value string, valStyle lipgloss.Style) string {
 		k := lipgloss.NewStyle().Foreground(colorMuted).Width(keyW).Render(key)
@@ -540,10 +547,22 @@ func (m *Model) viewReview() string {
 
 	b.WriteString(styles.Description.Render("  PROJECT") + "\n")
 	b.WriteString(hr)
-	b.WriteString(summaryRow("Folder", folder, styles.StepActive))
-	b.WriteString(summaryRow("Module", pkg, styles.StepActive))
-	b.WriteString(summaryRow("Architecture", arch, styles.Checkbox))
-	b.WriteString(summaryRow("Output", "./"+folder+"/", styles.StepPending))
+	if m.Mode == ModeAdd {
+		b.WriteString(summaryRow("Module", m.ExistingModule, styles.StepActive))
+		b.WriteString(summaryRow("Target", "current directory", styles.StepPending))
+	} else {
+		folder := m.FolderInput.Value()
+		if folder == "" {
+			folder = "(not set)"
+		}
+		pkg := m.PkgInput.Value()
+		if pkg == "" {
+			pkg = "(not set)"
+		}
+		b.WriteString(summaryRow("Folder", folder, styles.StepActive))
+		b.WriteString(summaryRow("Module", pkg, styles.StepActive))
+		b.WriteString(summaryRow("Output", "./"+folder+"/", styles.StepPending))
+	}
 	b.WriteString("\n")
 
 	b.WriteString(styles.Description.Render("  DEPENDENCIES") + "\n")
@@ -589,7 +608,11 @@ func (m *Model) viewReview() string {
 // viewDone is shown briefly before tea.Quit takes effect.
 func (m *Model) viewDone() string {
 	var b strings.Builder
-	b.WriteString(styles.Checkbox.Render("✔ Ready to scaffold!") + "\n\n")
-	b.WriteString(styles.Name.Render("  Generating "+m.SelectedArch+" project...") + "\n")
+	b.WriteString(styles.Checkbox.Render("✔ Ready!") + "\n\n")
+	if m.Mode == ModeAdd {
+		b.WriteString(styles.Name.Render("  Installing dependencies...") + "\n")
+	} else {
+		b.WriteString(styles.Name.Render("  Generating project...") + "\n")
+	}
 	return b.String()
 }
