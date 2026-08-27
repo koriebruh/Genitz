@@ -46,37 +46,51 @@ Usage:
   genitz help    Show this message.`)
 }
 
-// runInit walks the new-project wizard and scaffolds it.
+// runInit walks the new-project wizard. Confirming on Review animates the
+// install (go mod / go get) inside the TUI itself via model.BuildSteps.
 func runInit() {
-	finalModel := runProgram(tui.InitialModel())
+	model := tui.InitialModel()
+	model.BuildSteps = func(m *tui.Model) []tui.InstallStep {
+		req, err := generator.NewRequirementFromModel(m)
+		if err != nil {
+			return []tui.InstallStep{{Label: "Validate input", Run: func() error { return err }}}
+		}
+		targetPath, err := generator.PrepareNewProject(req)
+		if err != nil {
+			return []tui.InstallStep{{Label: "Create project directory", Run: func() error { return err }}}
+		}
+		return generator.BuildInstallSteps(targetPath, req)
+	}
+
+	finalModel := runProgram(model)
+
+	if finalModel.InstallErr != nil {
+		folder := finalModel.FolderInput.Value()
+		// Only clean up if we actually created the directory (InstallIndex
+		// advanced past the "create project directory" step) — never touch
+		// a pre-existing folder we merely failed to use as a target.
+		if finalModel.InstallIndex > 0 {
+			if removeErr := os.RemoveAll(folder); removeErr != nil {
+				fmt.Printf("Warning: could not remove partial output %q: %v\n", folder, removeErr)
+			} else {
+				fmt.Printf("Cleaned up partial directory: ./%s/\n", folder)
+			}
+		}
+		fmt.Printf("\nGagal membuat project: %v\n", finalModel.InstallErr)
+		os.Exit(1)
+	}
+
 	if !finalModel.Done {
 		fmt.Println("\nCancelled.")
 		return
 	}
 
-	req, err := generator.NewRequirementFromModel(finalModel)
-	if err != nil {
-		fmt.Printf("\nInput belum lengkap: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("\n🛠️  Sedang memproses project...")
-	if err := generator.GenerateNewProject(req); err != nil {
-		// Clean up any partially created directory so a failed run leaves no trace.
-		if removeErr := os.RemoveAll(req.ProjectName); removeErr != nil {
-			fmt.Printf("Warning: could not remove partial output %q: %v\n", req.ProjectName, removeErr)
-		} else {
-			fmt.Printf("Cleaned up partial directory: ./%s/\n", req.ProjectName)
-		}
-		fmt.Printf("\nGagal membuat project: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("\n📂 Project tersedia di: ./%s\n", req.ProjectName)
+	fmt.Printf("\n📂 Project tersedia di: ./%s\n", finalModel.FolderInput.Value())
+	generator.PrintDocs(finalModel.Chosen)
 }
 
-// runAdd walks the dependency picker and installs the chosen packages into
-// the Go module found in the current directory.
+// runAdd walks the dependency picker. Confirming on Review animates the
+// install inside the TUI itself via model.BuildSteps.
 func runAdd() {
 	module, err := generator.ReadModulePath(".")
 	if err != nil {
@@ -84,16 +98,25 @@ func runAdd() {
 		os.Exit(1)
 	}
 
-	finalModel := runProgram(tui.AddModel(module))
+	model := tui.AddModel(module)
+	model.BuildSteps = func(m *tui.Model) []tui.InstallStep {
+		return generator.BuildAddSteps(".", m.Chosen)
+	}
+
+	finalModel := runProgram(model)
+
+	if finalModel.InstallErr != nil {
+		fmt.Printf("\nGagal menambahkan dependency: %v\n", finalModel.InstallErr)
+		os.Exit(1)
+	}
+
 	if !finalModel.Done {
 		fmt.Println("\nCancelled.")
 		return
 	}
 
-	if err := generator.AddDependencies(".", finalModel.Chosen); err != nil {
-		fmt.Printf("\nGagal menambahkan dependency: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Println("\n✅ Dependencies installed ✨")
+	generator.PrintDocs(finalModel.Chosen)
 }
 
 // runProgram runs the Bubble Tea wizard to completion and returns the final model.

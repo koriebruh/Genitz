@@ -51,6 +51,13 @@ type uiStyles struct {
 
 var styles = newUIStyles()
 
+// spinnerStyle colors the install-progress spinner; installFailStyle marks
+// a failed install step.
+var (
+	spinnerStyle     = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	installFailStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true)
+)
+
 func newUIStyles() uiStyles {
 	return uiStyles{
 		Brand:       lipgloss.NewStyle().Foreground(colorPrimary).Bold(true),

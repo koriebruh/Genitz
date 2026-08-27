@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,11 +18,13 @@ var initSteps = []stepDef{
 	{"①", "Project"},
 	{"②", "Dependencies"},
 	{"③", "Review"},
+	{"④", "Installing"},
 }
 
 var addSteps = []stepDef{
 	{"①", "Dependencies"},
 	{"②", "Review"},
+	{"③", "Installing"},
 }
 
 // keyHint is a keyboard shortcut + action description pair for the footer.
@@ -58,6 +61,14 @@ type Model struct {
 	Width  int
 	Height int
 
+	// BuildSteps is injected by main.go: given the confirmed model, it
+	// returns the ordered install work to animate on StepInstalling.
+	BuildSteps   func(*Model) []InstallStep
+	InstallSteps []InstallStep
+	InstallIndex int
+	InstallErr   error
+	Spinner      spinner.Model
+
 	Done bool
 }
 
@@ -80,6 +91,7 @@ func InitialModel() *Model {
 		Registry:      DependencyRegistry,
 		Chosen:        make(map[int]Dependency),
 		ExpandedGroup: -1,
+		Spinner:       newSpinner(),
 	}
 }
 
@@ -93,6 +105,7 @@ func AddModel(existingModule string) *Model {
 		Registry:       DependencyRegistry,
 		Chosen:         make(map[int]Dependency),
 		ExpandedGroup:  -1,
+		Spinner:        newSpinner(),
 	}
 }
 
@@ -104,6 +117,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = wsMsg.Width
 		m.Height = wsMsg.Height
 		return m, nil
+	}
+
+	switch msg := msg.(type) {
+	case stepDoneMsg:
+		cmd, _ := m.handleStepDone(msg)
+		return m, cmd
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.Spinner, cmd = m.Spinner.Update(msg)
+		return m, cmd
 	}
 
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
@@ -131,6 +154,8 @@ func (m *Model) View() string {
 		content = m.renderDependencyView()
 	case m.Step == StepReview:
 		content = m.viewReview()
+	case m.Step == StepInstalling:
+		content = m.viewInstalling()
 	}
 	return m.renderFrame(content)
 }
@@ -262,6 +287,8 @@ func (m *Model) stepIndex() int {
 			return 0
 		case StepReview:
 			return 1
+		case StepInstalling:
+			return 2
 		}
 		return 0
 	}
@@ -272,6 +299,8 @@ func (m *Model) stepIndex() int {
 		return 1
 	case StepReview:
 		return 2
+	case StepInstalling:
+		return 3
 	}
 	return 0
 }
@@ -465,8 +494,7 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	switch msg.String() {
 	case "enter", "y":
-		m.Done = true
-		return tea.Quit, true
+		return m.beginInstall(), true
 	case "b":
 		m.Step = StepDeps
 		return nil, true
@@ -617,11 +645,11 @@ func (m *Model) viewReview() string {
 // viewDone is shown briefly before tea.Quit takes effect.
 func (m *Model) viewDone() string {
 	var b strings.Builder
-	b.WriteString(styles.Checkbox.Render("✔ Ready!") + "\n\n")
+	b.WriteString(styles.Checkbox.Render("✔ Done!") + "\n\n")
 	if m.Mode == ModeAdd {
-		b.WriteString(styles.Name.Render("  Installing dependencies...") + "\n")
+		b.WriteString(styles.Name.Render("  Dependencies installed.") + "\n")
 	} else {
-		b.WriteString(styles.Name.Render("  Generating project...") + "\n")
+		b.WriteString(styles.Name.Render("  Project scaffolded.") + "\n")
 	}
 	return b.String()
 }

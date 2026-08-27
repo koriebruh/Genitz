@@ -18,7 +18,8 @@ both through the same fast, keyboard-driven picker instead of hand-typing
 
 *Recorded straight from the terminal with [VHS](https://github.com/charmbracelet/vhs)
 — nothing staged. `genitz` → name the project → pick Fiber and Echo from the
-picker → review → confirm → real `go get` runs → doc links printed.*
+picker → review → confirm → the animated Installing step runs real `go get`
+→ doc links printed.*
 
 ## Features
 
@@ -38,10 +39,11 @@ picker → review → confirm → real `go get` runs → doc links printed.*
 - **Responsive TUI.** Renders cleanly whether your terminal is a small split
   pane or a maximized window — no ASCII-art logo shoving your content off
   screen, no cursor scrolling out of view.
-- **Animated, quiet installs.** `go get`/`go mod tidy` output is captured
-  instead of dumped to the screen — a spinner shows progress per package and
-  collapses to a checkmark on success. On failure, the real output prints so
-  nothing is hidden.
+- **Animated install screen, built into the wizard.** Confirming on Review
+  moves to its own "Installing" step — a live spinner runs next to whichever
+  `go mod`/`go get` command is in flight, each one collapsing to a checkmark
+  as it finishes. A failure shows a cross plus the real captured output, no
+  raw log spam either way.
 - **Doc links, not guesswork.** Every dependency on the Review screen — and
   in the terminal output after install — comes with its
   [pkg.go.dev](https://pkg.go.dev) reference link.
