@@ -44,8 +44,12 @@ type Model struct {
 	Registry []Dependency
 	Chosen   map[int]Dependency
 
-	// Cursor is the visual position inside the buildVisibleOrder slice,
-	// NOT a raw Registry index. Use currentDepIndex() to get the registry index.
+	// ExpandedGroup is the depGroups index currently expanded in the
+	// dependency picker (-1 = none). Only one group is open at a time.
+	ExpandedGroup int
+
+	// Cursor is the visual position inside visibleRows(), NOT a raw Registry
+	// index — use activateCursorRow() to act on whatever row it's on.
 	Cursor       int
 	SearchQuery  string
 	SearchActive bool
@@ -69,12 +73,13 @@ func InitialModel() *Model {
 	p.CharLimit = 128
 
 	return &Model{
-		Mode:        ModeInit,
-		Step:        StepFolder,
-		FolderInput: f,
-		PkgInput:    p,
-		Registry:    DependencyRegistry,
-		Chosen:      make(map[int]Dependency),
+		Mode:          ModeInit,
+		Step:          StepFolder,
+		FolderInput:   f,
+		PkgInput:      p,
+		Registry:      DependencyRegistry,
+		Chosen:        make(map[int]Dependency),
+		ExpandedGroup: -1,
 	}
 }
 
@@ -87,6 +92,7 @@ func AddModel(existingModule string) *Model {
 		ExistingModule: existingModule,
 		Registry:       DependencyRegistry,
 		Chosen:         make(map[int]Dependency),
+		ExpandedGroup:  -1,
 	}
 }
 
@@ -141,6 +147,7 @@ func (m *Model) renderFrame(content string) string {
 
 	var b strings.Builder
 	b.WriteString(m.renderHeader(w))
+	b.WriteString(m.renderModeLine(w))
 	b.WriteString(m.renderStepNav(w))
 	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(w))))
 	b.WriteString("\n\n")
@@ -155,9 +162,11 @@ func (m *Model) renderFrame(content string) string {
 }
 
 // renderHeader picks the full logo, the one-line compact brand, or nothing,
-// based on how much room the terminal actually has.
+// based on how much room the terminal actually has. The full ASCII logo is
+// reserved for tall terminals so it doesn't eat the room the dependency
+// list needs on an ordinary-sized window — compact is the common case.
 func (m *Model) renderHeader(w int) string {
-	full := m.Height == 0 || m.Height >= 28
+	full := m.Height >= 34
 	compactOK := m.Height == 0 || m.Height >= 14
 
 	switch {
@@ -168,6 +177,18 @@ func (m *Model) renderHeader(w int) string {
 	default:
 		return ""
 	}
+}
+
+// renderModeLine tells the user, up front, which of the two flows they're
+// in: a brand-new project wizard, or adding dependencies to the project
+// already in the current directory.
+func (m *Model) renderModeLine(w int) string {
+	style := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	label := "→ New project mode"
+	if m.Mode == ModeAdd {
+		label = "→ Add dependency mode · " + m.ExistingModule
+	}
+	return lipgloss.NewStyle().MaxWidth(w).Render("  "+style.Render(label)) + "\n\n"
 }
 
 // dividerWidth returns the horizontal rule length clamped to terminal width.
@@ -388,14 +409,12 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 			}
 			return nil, true
 		case "down", "j":
-			if m.Cursor < len(m.buildVisibleOrder())-1 {
+			if m.Cursor < len(m.visibleRows())-1 {
 				m.Cursor++
 			}
 			return nil, true
 		case " ":
-			if idx := m.currentDepIndex(); idx >= 0 {
-				m.toggleDependency(idx)
-			}
+			m.activateCursorRow()
 			return nil, true
 		case "enter":
 			m.SearchActive = false
@@ -427,14 +446,12 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "down", "j":
-		if m.Cursor < len(m.buildVisibleOrder())-1 {
+		if m.Cursor < len(m.visibleRows())-1 {
 			m.Cursor++
 		}
 		return nil, true
 	case " ":
-		if idx := m.currentDepIndex(); idx >= 0 {
-			m.toggleDependency(idx)
-		}
+		m.activateCursorRow()
 		return nil, true
 	case "enter":
 		m.Step = StepReview
@@ -459,15 +476,15 @@ func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// clampCursor ensures Cursor stays within the visible order after a search change.
+// clampCursor ensures Cursor stays within visibleRows() after a search change.
 func (m *Model) clampCursor() {
-	order := m.buildVisibleOrder()
-	if len(order) == 0 {
+	n := len(m.visibleRows())
+	if n == 0 {
 		m.Cursor = 0
 		return
 	}
-	if m.Cursor >= len(order) {
-		m.Cursor = len(order) - 1
+	if m.Cursor >= n {
+		m.Cursor = n - 1
 	}
 }
 
@@ -477,15 +494,6 @@ func (m *Model) toggleDependency(registryIndex int) {
 		return
 	}
 	m.Chosen[registryIndex] = m.Registry[registryIndex]
-}
-
-// currentDepIndex returns the Registry index of the highlighted dep, or -1.
-func (m *Model) currentDepIndex() int {
-	order := m.buildVisibleOrder()
-	if len(order) == 0 || m.Cursor >= len(order) {
-		return -1
-	}
-	return order[m.Cursor]
 }
 
 // ── Panel views ───────────────────────────────────────────────────────────────
