@@ -26,6 +26,8 @@ const (
 	CatUtility       = "utility"
 	CatCLI           = "cli"
 	CatQueue         = "queue"
+	CatBlockchain    = "blockchain"
+	CatCloud         = "cloud"
 )
 
 // getBadgeStyle returns a coloured pill style for a given dependency category.
@@ -73,6 +75,10 @@ func getBadgeStyle(category string) lipgloss.Style {
 		return base.Background(lipgloss.Color("#455A64"))
 	case CatQueue:
 		return base.Background(lipgloss.Color("#8D6E63"))
+	case CatBlockchain:
+		return base.Background(lipgloss.Color("#627EEA"))
+	case CatCloud:
+		return base.Background(lipgloss.Color("#FF9900"))
 	default:
 		return base.Background(lipgloss.Color("#222222"))
 	}
@@ -175,6 +181,36 @@ var DependencyRegistry = []Dependency{
 		Description: "Official MongoDB driver — NoSQL document store",
 	},
 	{
+		ID: "gocql", Name: "gocql (Cassandra)", Category: CatDriver,
+		ImportPath:  "github.com/gocql/gocql",
+		Description: "Cassandra / ScyllaDB client — wide-column NoSQL",
+	},
+	{
+		ID: "elasticsearch", Name: "Elasticsearch", Category: CatDriver,
+		ImportPath:  "github.com/elastic/go-elasticsearch/v8",
+		Description: "Elasticsearch client — search & analytics store",
+	},
+	{
+		ID: "dynamodb", Name: "AWS DynamoDB", Category: CatDriver,
+		ImportPath:  "github.com/aws/aws-sdk-go-v2/service/dynamodb",
+		Description: "DynamoDB client — managed NoSQL key-value/document store",
+	},
+	{
+		ID: "etcd", Name: "etcd", Category: CatDriver,
+		ImportPath:  "go.etcd.io/etcd/client/v3",
+		Description: "Distributed key-value store — config, coordination, locks",
+	},
+	{
+		ID: "badger", Name: "Badger", Category: CatDriver,
+		ImportPath:  "github.com/dgraph-io/badger/v4",
+		Description: "Embedded key-value NoSQL store, pure Go, no server needed",
+	},
+	{
+		ID: "neo4j", Name: "Neo4j", Category: CatDriver,
+		ImportPath:  "github.com/neo4j/neo4j-go-driver/v5",
+		Description: "Neo4j graph database driver",
+	},
+	{
 		ID: "migrate", Name: "golang-migrate", Category: CatMigration,
 		ImportPath:  "github.com/golang-migrate/migrate/v4",
 		Description: "Database schema migrations (MySQL, Postgres, Mongo, ...)",
@@ -272,6 +308,60 @@ var DependencyRegistry = []Dependency{
 		Description: "Loads environment variables from a .env file",
 	},
 
+	// ── Blockchain ───────────────────────────────────────────────
+	{
+		ID: "go-ethereum", Name: "go-ethereum", Category: CatBlockchain,
+		ImportPath:  "github.com/ethereum/go-ethereum",
+		Description: "Ethereum protocol client — signing, ABI, JSON-RPC",
+	},
+	{
+		ID: "solana-go", Name: "solana-go", Category: CatBlockchain,
+		ImportPath:  "github.com/gagliardetto/solana-go",
+		Description: "Solana blockchain SDK for Go",
+	},
+	{
+		ID: "btcd", Name: "btcd", Category: CatBlockchain,
+		ImportPath:  "github.com/btcsuite/btcd",
+		Description: "Full Bitcoin protocol implementation in Go",
+	},
+	{
+		ID: "cosmos-sdk", Name: "Cosmos SDK", Category: CatBlockchain,
+		ImportPath:  "github.com/cosmos/cosmos-sdk",
+		Description: "Framework for building application-specific blockchains",
+	},
+	{
+		ID: "fabric-sdk-go", Name: "Hyperledger Fabric SDK", Category: CatBlockchain,
+		ImportPath:  "github.com/hyperledger/fabric-sdk-go",
+		Description: "Permissioned enterprise blockchain SDK",
+	},
+	{
+		ID: "cometbft", Name: "CometBFT", Category: CatBlockchain,
+		ImportPath:  "github.com/cometbft/cometbft",
+		Description: "BFT state machine replication / consensus engine",
+	},
+
+	// ── Cloud SDKs ───────────────────────────────────────────────
+	{
+		ID: "aws-sdk", Name: "AWS SDK v2", Category: CatCloud,
+		ImportPath:  "github.com/aws/aws-sdk-go-v2",
+		Description: "AWS SDK core — pair with per-service submodules",
+	},
+	{
+		ID: "gcp-sdk", Name: "Google Cloud SDK", Category: CatCloud,
+		ImportPath:  "cloud.google.com/go",
+		Description: "Google Cloud client libraries root module",
+	},
+	{
+		ID: "azure-sdk", Name: "Azure SDK", Category: CatCloud,
+		ImportPath:  "github.com/Azure/azure-sdk-for-go",
+		Description: "Azure SDK for Go",
+	},
+	{
+		ID: "minio", Name: "MinIO client", Category: CatCloud,
+		ImportPath:  "github.com/minio/minio-go/v7",
+		Description: "S3-compatible object storage client",
+	},
+
 	// ── CLI Tools ────────────────────────────────────────────────
 	{
 		ID: "cobra", Name: "Cobra", Category: CatCLI,
@@ -367,6 +457,11 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/jinzhu/copier",
 		Description: "Struct-to-struct field copying",
 	},
+	{
+		ID: "msgpack", Name: "msgpack", Category: CatUtility,
+		ImportPath:  "github.com/vmihailenco/msgpack/v5",
+		Description: "Compact binary serialization — faster/smaller than JSON",
+	},
 }
 
 // depGroup is one category section in the dependency picker.
@@ -387,6 +482,8 @@ var depGroups = []depGroup{
 	{"Configuration", []string{CatConfig}},
 	{"CLI Tools", []string{CatCLI}},
 	{"Background Jobs", []string{CatQueue}},
+	{"Blockchain", []string{CatBlockchain}},
+	{"Cloud SDKs", []string{CatCloud}},
 	{"Utilities", []string{CatValidation, CatDoc, CatUtility}},
 }
 
