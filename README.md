@@ -25,18 +25,23 @@ picker → review → confirm → real `go get` runs → doc links printed.*
 - **Two flows, one binary.** No `go.mod` in the current directory → new
   project wizard. `go.mod` already there → straight to the dependency
   picker. `genitz init` / `genitz add` force either flow explicitly.
-- **85 dependencies across 16 categories** — web frameworks, ORMs, raw SQL
-  and NoSQL/search drivers, message brokers, observability, auth, dependency
-  injection, config loaders, CLI-building libraries, background job queues,
-  blockchain SDKs, cloud/infra SDKs, payments, testing, desktop & game dev,
-  and general utilities. Whatever corner of Go you work in, it should be in
-  here. See the [full list](#dependency-registry) below.
+- **120 dependencies across 16 categories** — web frameworks, ORMs, raw SQL
+  and NoSQL/search drivers, caches, message brokers, observability, auth,
+  dependency injection, config loaders, CLI-building libraries, background
+  job queues, blockchain SDKs, cloud/infra SDKs, payments, testing, desktop
+  & game dev, and general utilities. Whatever corner of Go you work in, it
+  should be in here — no more tabbing out to search for a package name.
+  See the [full list](#dependency-registry) below.
 - **Collapsible picker, not a wall of text.** Categories collapse to one
   line by default; open one at a time, with a live "(N selected)" count so a
   choice is never hidden. Type `/` to search across everything at once.
 - **Responsive TUI.** Renders cleanly whether your terminal is a small split
   pane or a maximized window — no ASCII-art logo shoving your content off
   screen, no cursor scrolling out of view.
+- **Animated, quiet installs.** `go get`/`go mod tidy` output is captured
+  instead of dumped to the screen — a spinner shows progress per package and
+  collapses to a checkmark on success. On failure, the real output prints so
+  nothing is hidden.
 - **Doc links, not guesswork.** Every dependency on the Review screen — and
   in the terminal output after install — comes with its
   [pkg.go.dev](https://pkg.go.dev) reference link.
@@ -101,26 +106,26 @@ already exists. Runs `go get` + `go mod tidy` when you confirm.
 ## Dependency registry
 
 <details>
-<summary>All 85 packages, grouped (click to expand)</summary>
+<summary>All 120 packages, grouped (click to expand)</summary>
 
 | Group | Packages |
 |---|---|
-| Web / Routing | Fiber, Gin Gonic, Echo, Chi, gRPC, Protocol Buffers, gqlgen, Gorilla Mux, Gorilla WebSocket, Alice |
-| Database | GORM, sqlx, Bun, MySQL Driver, pgx (PostgreSQL), MongoDB Driver, gocql (Cassandra), Elasticsearch, AWS DynamoDB, etcd, Badger, Neo4j, Bleve, golang-migrate |
-| Cache | redis |
-| Messaging | kafka-go, NATS, RabbitMQ (amqp091) |
-| Observability | Uber Zap, Logrus, Zerolog, OpenTelemetry, Prometheus client |
-| Security | golang-jwt, golang.org/x/crypto, Casbin |
-| Dependency Injection | Uber Dig, Google Wire |
-| Configuration | Viper, godotenv |
-| CLI Tools | Cobra, urfave/cli |
-| Background Jobs | Asynq, River |
+| Web / Routing | Fiber, Gin Gonic, Echo, Chi, gRPC, Protocol Buffers, gqlgen, Twirp, Connect, Gorilla Mux, Gorilla WebSocket, Alice |
+| Database | GORM, sqlx, Bun, Ent, Squirrel, MySQL Driver, pgx (PostgreSQL), modernc SQLite, MongoDB Driver, gocql (Cassandra), Elasticsearch, ClickHouse Driver, AWS DynamoDB, etcd, Badger, Neo4j, Bleve, golang-migrate |
+| Cache | redis, gomemcache, Ristretto, BigCache, go-cache, groupcache |
+| Messaging | kafka-go, Sarama, NATS, RabbitMQ (amqp091), Watermill, Google Pub/Sub |
+| Observability | Uber Zap, Logrus, Zerolog, OpenTelemetry, Prometheus client, Sentry, DataDog statsd |
+| Security | golang-jwt, golang.org/x/crypto, Casbin, golang.org/x/oauth2, go-oidc, go-jose |
+| Dependency Injection | Uber Dig, Google Wire, Uber Fx |
+| Configuration | Viper, godotenv, Koanf, envconfig |
+| CLI Tools | Cobra, urfave/cli, pflag, promptui, Survey |
+| Background Jobs | Asynq, River, gocraft/work |
 | Blockchain | go-ethereum, solana-go, btcd, Cosmos SDK, Hyperledger Fabric SDK, CometBFT |
 | Cloud & Infra SDKs | AWS SDK v2, Google Cloud SDK, Azure SDK, MinIO client, client-go (Kubernetes), Consul API, Vault API, Docker client |
-| Payments | Stripe |
-| Testing | testify, go.uber.org/mock, Ginkgo, Gomega, gofakeit |
-| Desktop & Game Dev | Fyne, Ebiten |
-| Utilities | go playground validator, Swaggo, Google UUID, shopspring decimal, oklog/run, robfig/cron, golang.org/x/time, sony/gobreaker, Resty, go-money, Excelize, jinzhu/copier, msgpack, golang.org/x/sync, mapstructure, Sprig, gocsv, go-mail, gofpdf |
+| Payments | Stripe, PayPal |
+| Testing | testify, go.uber.org/mock, Ginkgo, Gomega, gofakeit, go-cmp, httpexpect, Gock |
+| Desktop & Game Dev | Fyne, Ebiten, Wails, raylib-go |
+| Utilities | go playground validator, Swaggo, Google UUID, shopspring decimal, oklog/run, robfig/cron, golang.org/x/time, sony/gobreaker, Resty, go-money, Excelize, jinzhu/copier, msgpack, golang.org/x/sync, mapstructure, Sprig, gocsv, go-mail, gofpdf, samber/lo, ants, avast/retry-go |
 
 </details>
 

@@ -148,6 +148,16 @@ var DependencyRegistry = []Dependency{
 		Description: "Schema-first GraphQL server generator",
 	},
 	{
+		ID: "twirp", Name: "Twirp", Category: CatRPC,
+		ImportPath:  "github.com/twitchtv/twirp",
+		Description: "Simple RPC framework — Protobuf services over plain HTTP",
+	},
+	{
+		ID: "connect", Name: "Connect", Category: CatRPC,
+		ImportPath:  "connectrpc.com/connect",
+		Description: "gRPC-compatible RPC that also speaks plain HTTP/JSON",
+	},
+	{
 		ID: "gorilla-mux", Name: "Gorilla Mux", Category: CatFramework,
 		ImportPath:  "github.com/gorilla/mux",
 		Description: "Ubiquitous HTTP request router/dispatcher",
@@ -230,6 +240,26 @@ var DependencyRegistry = []Dependency{
 		Description: "Embedded full-text search engine, pure Go",
 	},
 	{
+		ID: "ent", Name: "Ent", Category: CatORM,
+		ImportPath:  "entgo.io/ent",
+		Description: "Entity framework — graph-based ORM with code generation",
+	},
+	{
+		ID: "squirrel", Name: "Squirrel", Category: CatORM,
+		ImportPath:  "github.com/Masterminds/squirrel",
+		Description: "Fluent SQL query builder",
+	},
+	{
+		ID: "sqlite", Name: "modernc sqlite", Category: CatDriver,
+		ImportPath:  "modernc.org/sqlite",
+		Description: "Pure-Go SQLite driver — no CGO required",
+	},
+	{
+		ID: "clickhouse", Name: "ClickHouse Driver", Category: CatDriver,
+		ImportPath:  "github.com/ClickHouse/clickhouse-go/v2",
+		Description: "ClickHouse driver — OLAP/analytics database",
+	},
+	{
 		ID: "migrate", Name: "golang-migrate", Category: CatMigration,
 		ImportPath:  "github.com/golang-migrate/migrate/v4",
 		Description: "Database schema migrations (MySQL, Postgres, Mongo, ...)",
@@ -241,12 +271,42 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/redis/go-redis/v9",
 		Description: "Redis client — cache, sessions, or NoSQL key-value store",
 	},
+	{
+		ID: "memcache", Name: "gomemcache", Category: CatCache,
+		ImportPath:  "github.com/bradfitz/gomemcache/memcache",
+		Description: "Memcached client",
+	},
+	{
+		ID: "ristretto", Name: "Ristretto", Category: CatCache,
+		ImportPath:  "github.com/dgraph-io/ristretto",
+		Description: "High-performance in-memory cache with cost-based eviction",
+	},
+	{
+		ID: "bigcache", Name: "BigCache", Category: CatCache,
+		ImportPath:  "github.com/allegro/bigcache/v3",
+		Description: "Fast, GC-friendly in-memory cache for large datasets",
+	},
+	{
+		ID: "go-cache", Name: "go-cache", Category: CatCache,
+		ImportPath:  "github.com/patrickmn/go-cache",
+		Description: "Simple in-memory key-value store with TTL",
+	},
+	{
+		ID: "groupcache", Name: "groupcache", Category: CatCache,
+		ImportPath:  "github.com/golang/groupcache",
+		Description: "Distributed caching library (memcached alternative)",
+	},
 
 	// ── Messaging ────────────────────────────────────────────────
 	{
 		ID: "kafka-go", Name: "kafka-go", Category: CatMessageBroker,
 		ImportPath:  "github.com/segmentio/kafka-go",
 		Description: "Kafka client library for event streaming",
+	},
+	{
+		ID: "sarama", Name: "Sarama", Category: CatMessageBroker,
+		ImportPath:  "github.com/IBM/sarama",
+		Description: "Kafka client library (alternative to kafka-go)",
 	},
 	{
 		ID: "nats", Name: "NATS", Category: CatMessageBroker,
@@ -257,6 +317,16 @@ var DependencyRegistry = []Dependency{
 		ID: "rabbitmq", Name: "RabbitMQ (amqp091)", Category: CatMessageBroker,
 		ImportPath:  "github.com/rabbitmq/amqp091-go",
 		Description: "AMQP 0-9-1 client for RabbitMQ — reliable queues",
+	},
+	{
+		ID: "watermill", Name: "Watermill", Category: CatMessageBroker,
+		ImportPath:  "github.com/ThreeDotsLabs/watermill",
+		Description: "Event-driven applications, broker-agnostic pub/sub",
+	},
+	{
+		ID: "pubsub", Name: "Google Pub/Sub", Category: CatMessageBroker,
+		ImportPath:  "cloud.google.com/go/pubsub",
+		Description: "Google Cloud Pub/Sub client",
 	},
 
 	// ── Observability ────────────────────────────────────────────
@@ -285,6 +355,16 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/prometheus/client_golang",
 		Description: "Prometheus metrics client for exposing /metrics",
 	},
+	{
+		ID: "sentry", Name: "Sentry", Category: CatTracing,
+		ImportPath:  "github.com/getsentry/sentry-go",
+		Description: "Error tracking and performance monitoring",
+	},
+	{
+		ID: "statsd", Name: "DataDog statsd", Category: CatMetrics,
+		ImportPath:  "github.com/DataDog/datadog-go/v5",
+		Description: "StatsD/DogStatsD metrics client",
+	},
 
 	// ── Security ─────────────────────────────────────────────────
 	{
@@ -302,6 +382,21 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/casbin/casbin/v2",
 		Description: "Authorization library — RBAC/ABAC access control",
 	},
+	{
+		ID: "oauth2", Name: "golang.org/x/oauth2", Category: CatAuth,
+		ImportPath:  "golang.org/x/oauth2",
+		Description: "OAuth2 client implementation",
+	},
+	{
+		ID: "oidc", Name: "go-oidc", Category: CatAuth,
+		ImportPath:  "github.com/coreos/go-oidc/v3",
+		Description: "OpenID Connect client",
+	},
+	{
+		ID: "go-jose", Name: "go-jose", Category: CatAuth,
+		ImportPath:  "github.com/go-jose/go-jose/v4",
+		Description: "JOSE — JWT/JWS/JWE/JWK implementation",
+	},
 
 	// ── Dependency Injection ─────────────────────────────────────
 	{
@@ -314,6 +409,11 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/google/wire",
 		Description: "Compile-time dependency injection code generator",
 	},
+	{
+		ID: "fx", Name: "Uber Fx", Category: CatDI,
+		ImportPath:  "go.uber.org/fx",
+		Description: "Application framework built on top of Dig",
+	},
 
 	// ── Configuration ────────────────────────────────────────────
 	{
@@ -325,6 +425,16 @@ var DependencyRegistry = []Dependency{
 		ID: "godotenv", Name: "godotenv", Category: CatConfig,
 		ImportPath:  "github.com/joho/godotenv",
 		Description: "Loads environment variables from a .env file",
+	},
+	{
+		ID: "koanf", Name: "Koanf", Category: CatConfig,
+		ImportPath:  "github.com/knadh/koanf/v2",
+		Description: "Lightweight, modular config loader (Viper alternative)",
+	},
+	{
+		ID: "envconfig", Name: "envconfig", Category: CatConfig,
+		ImportPath:  "github.com/kelseyhightower/envconfig",
+		Description: "Populate structs directly from environment variables",
 	},
 
 	// ── Blockchain ───────────────────────────────────────────────
@@ -412,6 +522,21 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/urfave/cli/v3",
 		Description: "Simple, fast package for building CLI apps",
 	},
+	{
+		ID: "pflag", Name: "pflag", Category: CatCLI,
+		ImportPath:  "github.com/spf13/pflag",
+		Description: "POSIX/GNU-style command-line flags, pairs with Cobra",
+	},
+	{
+		ID: "promptui", Name: "promptui", Category: CatCLI,
+		ImportPath:  "github.com/manifoldco/promptui",
+		Description: "Interactive command-line prompts and selects",
+	},
+	{
+		ID: "survey", Name: "Survey", Category: CatCLI,
+		ImportPath:  "github.com/AlecAivazis/survey/v2",
+		Description: "Interactive CLI prompts — forms, confirms, multi-select",
+	},
 
 	// ── Background Jobs ──────────────────────────────────────────
 	{
@@ -424,12 +549,22 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/riverqueue/river",
 		Description: "Postgres-backed background job queue",
 	},
+	{
+		ID: "gocraft-work", Name: "gocraft/work", Category: CatQueue,
+		ImportPath:  "github.com/gocraft/work",
+		Description: "Redis-backed background job/worker pool",
+	},
 
 	// ── Payments ─────────────────────────────────────────────────
 	{
 		ID: "stripe-go", Name: "Stripe", Category: CatPayment,
 		ImportPath:  "github.com/stripe/stripe-go/v81",
 		Description: "Stripe payments API client",
+	},
+	{
+		ID: "paypal", Name: "PayPal", Category: CatPayment,
+		ImportPath:  "github.com/plutov/paypal/v4",
+		Description: "PayPal REST API client",
 	},
 
 	// ── Testing ──────────────────────────────────────────────────
@@ -458,6 +593,21 @@ var DependencyRegistry = []Dependency{
 		ImportPath:  "github.com/brianvoe/gofakeit/v7",
 		Description: "Fake/random test data generator",
 	},
+	{
+		ID: "go-cmp", Name: "go-cmp", Category: CatTesting,
+		ImportPath:  "github.com/google/go-cmp",
+		Description: "Deep equality comparison for tests",
+	},
+	{
+		ID: "httpexpect", Name: "httpexpect", Category: CatTesting,
+		ImportPath:  "github.com/gavv/httpexpect/v2",
+		Description: "End-to-end HTTP and REST API testing",
+	},
+	{
+		ID: "gock", Name: "Gock", Category: CatTesting,
+		ImportPath:  "github.com/h2non/gock",
+		Description: "HTTP traffic mocking and expectations",
+	},
 
 	// ── Desktop & Game Dev ───────────────────────────────────────
 	{
@@ -469,6 +619,16 @@ var DependencyRegistry = []Dependency{
 		ID: "ebiten", Name: "Ebiten", Category: CatGUI,
 		ImportPath:  "github.com/hajimehoshi/ebiten/v2",
 		Description: "Simple, fast 2D game engine",
+	},
+	{
+		ID: "wails", Name: "Wails", Category: CatGUI,
+		ImportPath:  "github.com/wailsapp/wails/v2",
+		Description: "Build desktop apps with Go + a web frontend",
+	},
+	{
+		ID: "raylib", Name: "raylib-go", Category: CatGUI,
+		ImportPath:  "github.com/gen2brain/raylib-go/raylib",
+		Description: "Go bindings for raylib — 2D/3D game programming",
 	},
 
 	// ── Utilities ────────────────────────────────────────────────
@@ -566,6 +726,21 @@ var DependencyRegistry = []Dependency{
 		ID: "gofpdf", Name: "gofpdf", Category: CatUtility,
 		ImportPath:  "github.com/jung-kurt/gofpdf",
 		Description: "PDF generation — invoices, reports",
+	},
+	{
+		ID: "lo", Name: "samber/lo", Category: CatUtility,
+		ImportPath:  "github.com/samber/lo",
+		Description: "Lodash-style generic slice/map utility functions",
+	},
+	{
+		ID: "ants", Name: "ants", Category: CatUtility,
+		ImportPath:  "github.com/panjf2000/ants/v2",
+		Description: "High-performance goroutine pool",
+	},
+	{
+		ID: "retry-go", Name: "avast/retry-go", Category: CatUtility,
+		ImportPath:  "github.com/avast/retry-go/v4",
+		Description: "Simple retry mechanism with backoff strategies",
 	},
 }
 

@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -8,8 +9,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/koriebruh/Genitz/internal/tui"
+	"github.com/mattn/go-isatty"
 )
 
 // Requirement describes everything needed to scaffold a new project.
@@ -77,11 +81,10 @@ func GenerateNewProject(req Requirement) error {
 		return err
 	}
 
-	fmt.Println("✨ Finalizing project...")
-	if err := runIn(targetPath, "go", "mod", "tidy"); err != nil {
+	if err := runWithSpinner(targetPath, "Tidying go.mod", "go", "mod", "tidy"); err != nil {
 		return fmt.Errorf("final tidy: %w", err)
 	}
-	if err := runIn(targetPath, "go", "fmt", "./..."); err != nil {
+	if err := runWithSpinner(targetPath, "Formatting code", "go", "fmt", "./..."); err != nil {
 		return fmt.Errorf("final fmt: %w", err)
 	}
 
@@ -96,8 +99,7 @@ func AddDependencies(targetDir string, deps map[int]tui.Dependency) error {
 	if err := installDependencies(targetDir, deps); err != nil {
 		return err
 	}
-	fmt.Println("✨ Tidying go.mod...")
-	if err := runIn(targetDir, "go", "mod", "tidy"); err != nil {
+	if err := runWithSpinner(targetDir, "Tidying go.mod", "go", "mod", "tidy"); err != nil {
 		return fmt.Errorf("go mod tidy: %w", err)
 	}
 	fmt.Println("\n✅ Dependencies installed ✨")
@@ -167,11 +169,10 @@ func ensureFreshProjectDir(path string) error {
 }
 
 func initGoModule(target, module string) error {
-	fmt.Printf("⚙️  Initialising go.mod (%s)\n", module)
-	if err := runIn(target, "go", "mod", "init", module); err != nil {
+	if err := runWithSpinner(target, fmt.Sprintf("Initialising go.mod (%s)", module), "go", "mod", "init", module); err != nil {
 		return fmt.Errorf("go mod init: %w", err)
 	}
-	if err := runIn(target, "go", "mod", "tidy"); err != nil {
+	if err := runWithSpinner(target, "Tidying go.mod", "go", "mod", "tidy"); err != nil {
 		return fmt.Errorf("go mod tidy: %w", err)
 	}
 	return nil
@@ -182,7 +183,6 @@ func installDependencies(target string, deps map[int]tui.Dependency) error {
 		return nil
 	}
 
-	fmt.Println("📚 Installing selected dependencies")
 	seen := make(map[string]struct{})
 	var toInstall []string
 	for _, dep := range deps {
@@ -198,7 +198,8 @@ func installDependencies(target string, deps map[int]tui.Dependency) error {
 
 	sort.Strings(toInstall)
 	for _, importPath := range toInstall {
-		if err := runIn(target, "go", "get", importPath); err != nil {
+		label := fmt.Sprintf("Installing %s", importPath)
+		if err := runWithSpinner(target, label, "go", "get", importPath); err != nil {
 			return fmt.Errorf("go get %s: %w", importPath, err)
 		}
 	}
@@ -206,10 +207,59 @@ func installDependencies(target string, deps map[int]tui.Dependency) error {
 	return nil
 }
 
-func runIn(dir, name string, args ...string) error {
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+var (
+	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#22D3EE")).Bold(true)
+	doneStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
+	failStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true)
+)
+
+// runWithSpinner runs a command with its output captured (not streamed) and
+// an animated spinner shown next to label while it's in flight. On success
+// the line collapses to a checkmark; on failure it collapses to a cross and
+// the captured output is dumped so the underlying error is still visible.
+// Falls back to a single plain line (no animation) when stdout isn't a TTY.
+func runWithSpinner(dir, label, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		err := <-done
+		if err != nil {
+			fmt.Printf("✖ %s\n%s\n", label, out.String())
+			return err
+		}
+		fmt.Printf("✔ %s\n", label)
+		return nil
+	}
+
+	ticker := time.NewTicker(90 * time.Millisecond)
+	defer ticker.Stop()
+	frame := 0
+	for {
+		select {
+		case err := <-done:
+			fmt.Print("\r\033[K")
+			if err != nil {
+				fmt.Printf("%s %s\n%s\n", failStyle.Render("✖"), label, out.String())
+				return err
+			}
+			fmt.Printf("%s %s\n", doneStyle.Render("✔"), label)
+			return nil
+		case <-ticker.C:
+			fmt.Printf("\r\033[K%s %s", spinnerStyle.Render(spinnerFrames[frame%len(spinnerFrames)]), label)
+			frame++
+		}
+	}
 }
