@@ -25,17 +25,26 @@ depedency"). Only bare project init + dependency install exist today.
 ## Layout
 
 - `main.go` — entry point + subcommand dispatch (`runInit`/`runAdd`/
-  `printUsage`), builds the right `tui.Model`, runs the Bubble Tea program,
-  then calls `generator.GenerateNewProject` or `generator.AddDependencies`.
+  `printUsage`). Builds the right `tui.Model` and injects `BuildSteps` (and,
+  for Init, `LookupComposeServices`) closures into it — this is how `tui`
+  and `generator` talk without an import cycle (`generator` already imports
+  `tui` for `tui.Dependency`/`tui.InstallStep`, so `tui` can't import back).
 - `internal/tui/` — the wizard UI.
   - `main_view.go` — `Model`, step state machine, key handlers, panel views.
   - `dependencies.go` — `Dependency` struct, `DependencyRegistry` (the
     package catalog), category badges, `depGroups`, the accordion row model
     (`visibleRows`/`activateCursorRow`/`rowWindow`), `docURL`.
+  - `install.go` — `InstallStep` (label + `Run func() error`), the animated
+    `StepInstalling` screen driven by `stepDoneMsg`/`spinner.TickMsg`.
+  - `docker_step.go` — the `StepDocker` toggle screen (Init mode only).
   - `mode.go` — `Mode` (Init/Add) and `Step` enums.
   - `splash.go` / `styles.go` — ASCII logo, lipgloss styles.
-- `internal/generator/` — non-interactive scaffolding logic (`generate.go`),
-  no TUI imports beyond the `tui.Dependency`/`tui.Model` types it consumes.
+- `internal/generator/` — non-interactive scaffolding logic:
+  - `generate.go` — `Requirement`, `PrepareNewProject` (fast/sync: creates
+    the dir + `main.go`), `BuildInstallSteps`/`BuildAddSteps` (return
+    `[]tui.InstallStep` for the TUI to run and animate), `PrintDocs`.
+  - `docker.go` — Dockerfile/`.dockerignore`/`docker-compose.yml` content
+    generation, called from `BuildInstallSteps` when `Requirement.IncludeDocker`.
 
 ## Dependency picker UX
 
@@ -77,6 +86,27 @@ printed after install, so there's nothing to keep in sync there.
 
 There's no external registry file yet (package metadata is hardcoded Go) —
 a data-file-backed registry is a planned future step, not implemented.
+
+## Docker support
+
+Init mode only (`genitz add` never offers it — no clean way to merge into an
+existing Docker setup). `StepDocker` sits between `StepDeps` and `StepReview`
+in the wizard; `Model.IncludeDocker` is the toggle. When on,
+`BuildInstallSteps` (in `generate.go`) appends two more `InstallStep`s right
+after the initial `go mod tidy` — a Dockerfile step always runs, a
+docker-compose step only if `composeContent` finds a match — so `go.mod`
+already exists by then and the Dockerfile can read the real Go version out
+of it (`readGoVersion` in `docker.go`) instead of guessing.
+
+`docker.go`'s `dockerComposeServices` map is what decides which selected
+dependencies get a compose service — keyed by `Dependency.ID`, same shape as
+the registry itself. Add an entry there when you add a registry dependency
+that has an obvious, safe-to-default local container image; embedded/
+in-process libraries and anything too opinionated to auto-spin-up (secrets
+managers, k8s clients, ...) are deliberately left out. The picker's live
+preview (`docker_step.go`'s `dockerPreview`) calls this same table through
+`generator.ComposeServiceNames`, injected into `Model.LookupComposeServices`
+by `main.go` — same import-cycle-avoidance pattern as `BuildSteps`.
 
 ## Commands
 

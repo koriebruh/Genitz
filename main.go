@@ -50,6 +50,7 @@ Usage:
 // install (go mod / go get) inside the TUI itself via model.BuildSteps.
 func runInit() {
 	model := tui.InitialModel()
+	model.LookupComposeServices = generator.ComposeServiceNames
 	model.BuildSteps = func(m *tui.Model) []tui.InstallStep {
 		req, err := generator.NewRequirementFromModel(m)
 		if err != nil {

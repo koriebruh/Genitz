@@ -16,6 +16,7 @@ const (
 	StepFolder Step = iota
 	StepPackage
 	StepDeps
+	StepDocker
 	StepReview
 	StepInstalling
 )
