@@ -15,9 +15,10 @@ import (
 
 // Requirement describes everything needed to scaffold a new project.
 type Requirement struct {
-	ProjectName string
-	PackageName string
-	Deps        map[int]tui.Dependency
+	ProjectName   string
+	PackageName   string
+	Deps          map[int]tui.Dependency
+	IncludeDocker bool
 }
 
 // NewRequirementFromModel converts the interactive model into a concrete Requirement.
@@ -42,9 +43,10 @@ func NewRequirementFromModel(m *tui.Model) (Requirement, error) {
 	}
 
 	return Requirement{
-		ProjectName: projectName,
-		PackageName: packageName,
-		Deps:        deps,
+		ProjectName:   projectName,
+		PackageName:   packageName,
+		Deps:          deps,
+		IncludeDocker: m.IncludeDocker,
 	}, nil
 }
 
@@ -86,6 +88,35 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		},
 		{Label: "Tidying go.mod", Run: func() error { return runCaptured(targetPath, "go", "mod", "tidy") }},
 	}
+
+	if req.IncludeDocker {
+		steps = append(steps, tui.InstallStep{
+			Label: "Generating Dockerfile",
+			Run: func() error {
+				goVersion := readGoVersion(targetPath)
+				if err := os.WriteFile(filepath.Join(targetPath, "Dockerfile"), []byte(dockerfileContent(goVersion)), 0o644); err != nil {
+					return fmt.Errorf("write Dockerfile: %w", err)
+				}
+				if err := os.WriteFile(filepath.Join(targetPath, ".dockerignore"), []byte(dockerignoreContent()), 0o644); err != nil {
+					return fmt.Errorf("write .dockerignore: %w", err)
+				}
+				return nil
+			},
+		})
+
+		if content, ok := composeContent(req); ok {
+			steps = append(steps, tui.InstallStep{
+				Label: "Generating docker-compose.yml",
+				Run: func() error {
+					if err := os.WriteFile(filepath.Join(targetPath, "docker-compose.yml"), []byte(content), 0o644); err != nil {
+						return fmt.Errorf("write docker-compose.yml: %w", err)
+					}
+					return nil
+				},
+			})
+		}
+	}
+
 	for _, importPath := range sortedImportPaths(req.Deps) {
 		ip := importPath
 		steps = append(steps, tui.InstallStep{

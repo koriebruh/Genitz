@@ -17,8 +17,9 @@ type stepDef struct{ num, label string }
 var initSteps = []stepDef{
 	{"①", "Project"},
 	{"②", "Dependencies"},
-	{"③", "Review"},
-	{"④", "Installing"},
+	{"③", "Docker"},
+	{"④", "Review"},
+	{"⑤", "Installing"},
 }
 
 var addSteps = []stepDef{
@@ -60,6 +61,14 @@ type Model struct {
 	// Terminal dimensions — updated via tea.WindowSizeMsg.
 	Width  int
 	Height int
+
+	// IncludeDocker is the StepDocker toggle. Init mode only.
+	IncludeDocker bool
+	// LookupComposeServices is injected by main.go (generator.ComposeServiceNames)
+	// so StepDocker can preview which selected deps map to a compose service,
+	// without the tui package importing generator (the dependency runs the
+	// other way already).
+	LookupComposeServices func(depIDs []string) []string
 
 	// BuildSteps is injected by main.go: given the confirmed model, it
 	// returns the ordered install work to animate on StepInstalling.
@@ -152,6 +161,8 @@ func (m *Model) View() string {
 		content = m.viewPackage()
 	case m.Step == StepDeps:
 		content = m.renderDependencyView()
+	case m.Step == StepDocker:
+		content = m.viewDocker()
 	case m.Step == StepReview:
 		content = m.viewReview()
 	case m.Step == StepInstalling:
@@ -297,10 +308,12 @@ func (m *Model) stepIndex() int {
 		return 0
 	case StepDeps:
 		return 1
-	case StepReview:
+	case StepDocker:
 		return 2
-	case StepInstalling:
+	case StepReview:
 		return 3
+	case StepInstalling:
+		return 4
 	}
 	return 0
 }
@@ -363,10 +376,22 @@ func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return m.handlePackageKeys(msg)
 	case StepDeps:
 		return m.handleDepsKeys(msg)
+	case StepDocker:
+		return m.handleDockerKeys(msg)
 	case StepReview:
 		return m.handleReviewKeys(msg)
 	}
 	return nil, false
+}
+
+// nextAfterDeps is where "enter" on the dependency picker goes: the Docker
+// toggle screen in Init mode (Add mode never has one — installing into an
+// existing project's Docker setup, or lack of one, is out of scope).
+func (m *Model) nextAfterDeps() Step {
+	if m.Mode == ModeInit {
+		return StepDocker
+	}
+	return StepReview
 }
 
 // updateInputs forwards non-key messages to the active textinput.
@@ -447,7 +472,7 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 			return nil, true
 		case "enter":
 			m.SearchActive = false
-			m.Step = StepReview
+			m.Step = m.nextAfterDeps()
 			return nil, true
 		default:
 			if len(msg.Runes) == 1 && unicode.IsPrint(msg.Runes[0]) {
@@ -483,7 +508,7 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		m.activateCursorRow()
 		return nil, true
 	case "enter":
-		m.Step = StepReview
+		m.Step = m.nextAfterDeps()
 		return nil, true
 	case "q":
 		return tea.Quit, true
@@ -496,7 +521,11 @@ func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	case "enter", "y":
 		return m.beginInstall(), true
 	case "b":
-		m.Step = StepDeps
+		if m.Mode == ModeInit {
+			m.Step = StepDocker
+		} else {
+			m.Step = StepDeps
+		}
 		return nil, true
 	case "q":
 		return tea.Quit, true

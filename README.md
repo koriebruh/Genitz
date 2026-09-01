@@ -47,6 +47,13 @@ picker → review → confirm → the animated Installing step runs real `go get
 - **Doc links, not guesswork.** Every dependency on the Review screen — and
   in the terminal output after install — comes with its
   [pkg.go.dev](https://pkg.go.dev) reference link.
+- **Optional Docker setup (new projects only).** Toggle it on and Genitz
+  generates a multistage `Dockerfile` + `.dockerignore`, and — if any
+  selected dependency has a real backing service (Redis, Postgres, MySQL,
+  MongoDB, RabbitMQ, Kafka, and a few more) — a `docker-compose.yml` wiring
+  those services up alongside the app. No infra-backed deps selected? No
+  compose file gets written; it wouldn't add anything over the Dockerfile
+  alone.
 - **No template lock-in.** Genitz writes a bare `main.go` and lets `go get`
   do the rest — it doesn't force an opinionated project layout on you.
 
@@ -79,9 +86,11 @@ mkdir my-app && cd my-app   # optional — genitz creates the folder for you
 genitz init
 ```
 
-Walks you through: folder name → module path → dependency picker → review →
-scaffold. You end up with a `go.mod`, a minimal `main.go`, and whatever
-packages you picked already `go get`-installed.
+Walks you through: folder name → module path → dependency picker → optional
+Docker setup → review → scaffold. You end up with a `go.mod`, a minimal
+`main.go`, whatever packages you picked already `go get`-installed, and — if
+you opted in — a `Dockerfile` (+ `docker-compose.yml` for any picked
+dependency that needs a real backing service).
 
 ### Add dependencies to an existing project
 
