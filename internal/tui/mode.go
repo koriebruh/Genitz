@@ -17,6 +17,7 @@ const (
 	StepPackage
 	StepDeps
 	StepDocker
+	StepExtras
 	StepReview
 	StepInstalling
 )

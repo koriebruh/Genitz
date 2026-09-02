@@ -54,6 +54,17 @@ picker → review → confirm → the animated Installing step runs real `go get
   those services up alongside the app. No infra-backed deps selected? No
   compose file gets written; it wouldn't add anything over the Dockerfile
   alone.
+- **Optional CI, Makefile, and git init (new projects only).** A checkbox
+  screen after Docker: a GitHub Actions workflow mirroring Genitz's own
+  build/vet/test/gofmt loop, a Makefile whose docker targets match whatever
+  Docker actually produced, and `git init` + a first commit (fully local —
+  publishing to GitHub is *suggested*, never run automatically).
+- **Automatic config loader stub.** Pick exactly one config library
+  (Viper/godotenv/Koanf/envconfig) and Genitz writes a matching
+  `config/config.go`. Pick none, or more than one, and nothing is
+  generated — no guessing at what you meant.
+- **Scriptable.** `genitz init --name x --deps fiber,redis --docker --ci`
+  skips the wizard entirely — no TTY assumptions, safe for CI.
 - **No template lock-in.** Genitz writes a bare `main.go` and lets `go get`
   do the rest — it doesn't force an opinionated project layout on you.
 
@@ -87,10 +98,24 @@ genitz init
 ```
 
 Walks you through: folder name → module path → dependency picker → optional
-Docker setup → review → scaffold. You end up with a `go.mod`, a minimal
-`main.go`, whatever packages you picked already `go get`-installed, and — if
-you opted in — a `Dockerfile` (+ `docker-compose.yml` for any picked
-dependency that needs a real backing service).
+Docker setup → optional CI/Makefile/git init → review → scaffold. You end up
+with a `go.mod`, a minimal `main.go`, whatever packages you picked already
+`go get`-installed, a `Dockerfile` (+ `docker-compose.yml`) if you opted into
+Docker, a CI workflow / Makefile / git repo for whichever of those you
+checked, and a `config/config.go` stub if you picked exactly one config
+library.
+
+### Non-interactive (scripting/CI)
+
+```sh
+genitz init --name my-app --module github.com/me/my-app \
+  --deps fiber,redis --docker --ci --makefile --git
+genitz add --deps zap,testify
+```
+
+Passing `--name` (init) or `--deps` (either command) skips the wizard
+entirely — no TTY, no Bubble Tea program, just plain progress lines. Unknown
+dependency IDs fail fast with a clear message instead of guessing.
 
 ### Add dependencies to an existing project
 

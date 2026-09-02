@@ -18,8 +18,9 @@ var initSteps = []stepDef{
 	{"①", "Project"},
 	{"②", "Dependencies"},
 	{"③", "Docker"},
-	{"④", "Review"},
-	{"⑤", "Installing"},
+	{"④", "Extras"},
+	{"⑤", "Review"},
+	{"⑥", "Installing"},
 }
 
 var addSteps = []stepDef{
@@ -64,6 +65,14 @@ type Model struct {
 
 	// IncludeDocker is the StepDocker toggle. Init mode only.
 	IncludeDocker bool
+
+	// StepExtras checkboxes (Init mode only). ExtrasCursor is the row index
+	// into the fixed 3-item list rendered by viewExtras.
+	IncludeCI       bool
+	IncludeMakefile bool
+	IncludeGitInit  bool
+	ExtrasCursor    int
+
 	// LookupComposeServices is injected by main.go (generator.ComposeServiceNames)
 	// so StepDocker can preview which selected deps map to a compose service,
 	// without the tui package importing generator (the dependency runs the
@@ -163,6 +172,8 @@ func (m *Model) View() string {
 		content = m.renderDependencyView()
 	case m.Step == StepDocker:
 		content = m.viewDocker()
+	case m.Step == StepExtras:
+		content = m.viewExtras()
 	case m.Step == StepReview:
 		content = m.viewReview()
 	case m.Step == StepInstalling:
@@ -310,10 +321,12 @@ func (m *Model) stepIndex() int {
 		return 1
 	case StepDocker:
 		return 2
-	case StepReview:
+	case StepExtras:
 		return 3
-	case StepInstalling:
+	case StepReview:
 		return 4
+	case StepInstalling:
+		return 5
 	}
 	return 0
 }
@@ -378,6 +391,8 @@ func (m *Model) handleStepKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return m.handleDepsKeys(msg)
 	case StepDocker:
 		return m.handleDockerKeys(msg)
+	case StepExtras:
+		return m.handleExtrasKeys(msg)
 	case StepReview:
 		return m.handleReviewKeys(msg)
 	}
@@ -522,7 +537,7 @@ func (m *Model) handleReviewKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return m.beginInstall(), true
 	case "b":
 		if m.Mode == ModeInit {
-			m.Step = StepDocker
+			m.Step = StepExtras
 		} else {
 			m.Step = StepDeps
 		}

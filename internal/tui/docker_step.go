@@ -20,7 +20,7 @@ func (m *Model) handleDockerKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "enter":
-		m.Step = StepReview
+		m.Step = StepExtras
 		return nil, true
 	case "b":
 		m.Step = StepDeps

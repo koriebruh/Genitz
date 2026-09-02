@@ -15,10 +15,13 @@ import (
 
 // Requirement describes everything needed to scaffold a new project.
 type Requirement struct {
-	ProjectName   string
-	PackageName   string
-	Deps          map[int]tui.Dependency
-	IncludeDocker bool
+	ProjectName     string
+	PackageName     string
+	Deps            map[int]tui.Dependency
+	IncludeDocker   bool
+	IncludeCI       bool
+	IncludeMakefile bool
+	IncludeGitInit  bool
 }
 
 // NewRequirementFromModel converts the interactive model into a concrete Requirement.
@@ -43,10 +46,13 @@ func NewRequirementFromModel(m *tui.Model) (Requirement, error) {
 	}
 
 	return Requirement{
-		ProjectName:   projectName,
-		PackageName:   packageName,
-		Deps:          deps,
-		IncludeDocker: m.IncludeDocker,
+		ProjectName:     projectName,
+		PackageName:     packageName,
+		Deps:            deps,
+		IncludeDocker:   m.IncludeDocker,
+		IncludeCI:       m.IncludeCI,
+		IncludeMakefile: m.IncludeMakefile,
+		IncludeGitInit:  m.IncludeGitInit,
 	}, nil
 }
 
@@ -89,6 +95,7 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		{Label: "Tidying go.mod", Run: func() error { return runCaptured(targetPath, "go", "mod", "tidy") }},
 	}
 
+	hasCompose := false
 	if req.IncludeDocker {
 		steps = append(steps, tui.InstallStep{
 			Label: "Generating Dockerfile",
@@ -105,6 +112,7 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		})
 
 		if content, ok := composeContent(req); ok {
+			hasCompose = true
 			steps = append(steps, tui.InstallStep{
 				Label: "Generating docker-compose.yml",
 				Run: func() error {
@@ -117,6 +125,37 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		}
 	}
 
+	if req.IncludeCI {
+		steps = append(steps, tui.InstallStep{
+			Label: "Generating GitHub Actions CI workflow",
+			Run: func() error {
+				dir := filepath.Join(targetPath, ".github", "workflows")
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					return fmt.Errorf("create .github/workflows: %w", err)
+				}
+				content := ciWorkflowContent(readGoVersion(targetPath))
+				if err := os.WriteFile(filepath.Join(dir, "ci.yml"), []byte(content), 0o644); err != nil {
+					return fmt.Errorf("write ci.yml: %w", err)
+				}
+				return nil
+			},
+		})
+	}
+
+	if req.IncludeMakefile {
+		hasDockerfile := req.IncludeDocker
+		steps = append(steps, tui.InstallStep{
+			Label: "Generating Makefile",
+			Run: func() error {
+				content := makefileContent(hasDockerfile, hasCompose)
+				if err := os.WriteFile(filepath.Join(targetPath, "Makefile"), []byte(content), 0o644); err != nil {
+					return fmt.Errorf("write Makefile: %w", err)
+				}
+				return nil
+			},
+		})
+	}
+
 	for _, importPath := range sortedImportPaths(req.Deps) {
 		ip := importPath
 		steps = append(steps, tui.InstallStep{
@@ -124,10 +163,36 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 			Run:   func() error { return runCaptured(targetPath, "go", "get", ip) },
 		})
 	}
+
+	if dep, ok := detectConfigLib(req.Deps); ok {
+		if content, ok := configStubContent(dep); ok {
+			steps = append(steps, tui.InstallStep{
+				Label: "Generating config/config.go (" + dep.Name + ")",
+				Run: func() error {
+					dir := filepath.Join(targetPath, "config")
+					if err := os.MkdirAll(dir, 0o755); err != nil {
+						return fmt.Errorf("create config dir: %w", err)
+					}
+					if err := os.WriteFile(filepath.Join(dir, "config.go"), []byte(content), 0o644); err != nil {
+						return fmt.Errorf("write config/config.go: %w", err)
+					}
+					return nil
+				},
+			})
+		}
+	}
+
 	steps = append(steps,
 		tui.InstallStep{Label: "Tidying go.mod", Run: func() error { return runCaptured(targetPath, "go", "mod", "tidy") }},
 		tui.InstallStep{Label: "Formatting code", Run: func() error { return runCaptured(targetPath, "go", "fmt", "./...") }},
 	)
+
+	if req.IncludeGitInit {
+		steps = append(steps, tui.InstallStep{
+			Label: "Initialising git repository",
+			Run:   func() error { return runGitInit(targetPath) },
+		})
+	}
 	return steps
 }
 
