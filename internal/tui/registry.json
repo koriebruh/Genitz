@@ -1,0 +1,842 @@
+[
+  {
+    "ID": "fiber",
+    "Name": "Fiber",
+    "Category": "framework",
+    "ImportPath": "github.com/gofiber/fiber/v3",
+    "Description": "Express-inspired web framework written in Go"
+  },
+  {
+    "ID": "gin",
+    "Name": "Gin Gonic",
+    "Category": "framework",
+    "ImportPath": "github.com/gin-gonic/gin",
+    "Description": "High-performance HTTP web framework"
+  },
+  {
+    "ID": "echo",
+    "Name": "Echo",
+    "Category": "framework",
+    "ImportPath": "github.com/labstack/echo/v4",
+    "Description": "Minimalist, high-performance web framework"
+  },
+  {
+    "ID": "chi",
+    "Name": "Chi",
+    "Category": "framework",
+    "ImportPath": "github.com/go-chi/chi/v5",
+    "Description": "Lightweight, idiomatic, composable HTTP router"
+  },
+  {
+    "ID": "grpc",
+    "Name": "gRPC",
+    "Category": "rpc",
+    "ImportPath": "google.golang.org/grpc",
+    "Description": "High-performance RPC framework for service-to-service calls"
+  },
+  {
+    "ID": "protobuf",
+    "Name": "Protocol Buffers",
+    "Category": "rpc",
+    "ImportPath": "google.golang.org/protobuf",
+    "Description": "Protocol Buffers codegen runtime, pairs with gRPC"
+  },
+  {
+    "ID": "gqlgen",
+    "Name": "gqlgen",
+    "Category": "rpc",
+    "ImportPath": "github.com/99designs/gqlgen",
+    "Description": "Schema-first GraphQL server generator"
+  },
+  {
+    "ID": "twirp",
+    "Name": "Twirp",
+    "Category": "rpc",
+    "ImportPath": "github.com/twitchtv/twirp",
+    "Description": "Simple RPC framework — Protobuf services over plain HTTP"
+  },
+  {
+    "ID": "connect",
+    "Name": "Connect",
+    "Category": "rpc",
+    "ImportPath": "connectrpc.com/connect",
+    "Description": "gRPC-compatible RPC that also speaks plain HTTP/JSON"
+  },
+  {
+    "ID": "gorilla-mux",
+    "Name": "Gorilla Mux",
+    "Category": "framework",
+    "ImportPath": "github.com/gorilla/mux",
+    "Description": "Ubiquitous HTTP request router/dispatcher"
+  },
+  {
+    "ID": "websocket",
+    "Name": "Gorilla WebSocket",
+    "Category": "framework",
+    "ImportPath": "github.com/gorilla/websocket",
+    "Description": "WebSocket implementation for real-time connections"
+  },
+  {
+    "ID": "alice",
+    "Name": "Alice",
+    "Category": "framework",
+    "ImportPath": "github.com/justinas/alice",
+    "Description": "Painless net/http middleware chaining"
+  },
+  {
+    "ID": "gorm",
+    "Name": "GORM",
+    "Category": "orm",
+    "ImportPath": "gorm.io/gorm",
+    "Description": "The fantastic ORM library for Golang"
+  },
+  {
+    "ID": "sqlx",
+    "Name": "sqlx",
+    "Category": "orm",
+    "ImportPath": "github.com/jmoiron/sqlx",
+    "Description": "database/sql extensions — struct scanning for raw queries"
+  },
+  {
+    "ID": "bun",
+    "Name": "Bun",
+    "Category": "orm",
+    "ImportPath": "github.com/uptrace/bun",
+    "Description": "SQL-first ORM/query builder for Postgres, MySQL, SQLite"
+  },
+  {
+    "ID": "mysql-driver",
+    "Name": "MySQL Driver",
+    "Category": "driver",
+    "ImportPath": "github.com/go-sql-driver/mysql",
+    "Description": "MySQL driver for database/sql — raw query access"
+  },
+  {
+    "ID": "postgres-driver",
+    "Name": "pgx (PostgreSQL)",
+    "Category": "driver",
+    "ImportPath": "github.com/jackc/pgx/v5",
+    "Description": "PostgreSQL driver/toolkit — raw query access"
+  },
+  {
+    "ID": "mongo-driver",
+    "Name": "MongoDB Driver",
+    "Category": "driver",
+    "ImportPath": "go.mongodb.org/mongo-driver",
+    "Description": "Official MongoDB driver — NoSQL document store"
+  },
+  {
+    "ID": "gocql",
+    "Name": "gocql (Cassandra)",
+    "Category": "driver",
+    "ImportPath": "github.com/gocql/gocql",
+    "Description": "Cassandra / ScyllaDB client — wide-column NoSQL"
+  },
+  {
+    "ID": "elasticsearch",
+    "Name": "Elasticsearch",
+    "Category": "driver",
+    "ImportPath": "github.com/elastic/go-elasticsearch/v8",
+    "Description": "Elasticsearch client — search \u0026 analytics store"
+  },
+  {
+    "ID": "dynamodb",
+    "Name": "AWS DynamoDB",
+    "Category": "driver",
+    "ImportPath": "github.com/aws/aws-sdk-go-v2/service/dynamodb",
+    "Description": "DynamoDB client — managed NoSQL key-value/document store"
+  },
+  {
+    "ID": "etcd",
+    "Name": "etcd",
+    "Category": "driver",
+    "ImportPath": "go.etcd.io/etcd/client/v3",
+    "Description": "Distributed key-value store — config, coordination, locks"
+  },
+  {
+    "ID": "badger",
+    "Name": "Badger",
+    "Category": "driver",
+    "ImportPath": "github.com/dgraph-io/badger/v4",
+    "Description": "Embedded key-value NoSQL store, pure Go, no server needed"
+  },
+  {
+    "ID": "neo4j",
+    "Name": "Neo4j",
+    "Category": "driver",
+    "ImportPath": "github.com/neo4j/neo4j-go-driver/v5",
+    "Description": "Neo4j graph database driver"
+  },
+  {
+    "ID": "bleve",
+    "Name": "Bleve",
+    "Category": "driver",
+    "ImportPath": "github.com/blevesearch/bleve/v2",
+    "Description": "Embedded full-text search engine, pure Go"
+  },
+  {
+    "ID": "ent",
+    "Name": "Ent",
+    "Category": "orm",
+    "ImportPath": "entgo.io/ent",
+    "Description": "Entity framework — graph-based ORM with code generation"
+  },
+  {
+    "ID": "squirrel",
+    "Name": "Squirrel",
+    "Category": "orm",
+    "ImportPath": "github.com/Masterminds/squirrel",
+    "Description": "Fluent SQL query builder"
+  },
+  {
+    "ID": "sqlite",
+    "Name": "modernc sqlite",
+    "Category": "driver",
+    "ImportPath": "modernc.org/sqlite",
+    "Description": "Pure-Go SQLite driver — no CGO required"
+  },
+  {
+    "ID": "clickhouse",
+    "Name": "ClickHouse Driver",
+    "Category": "driver",
+    "ImportPath": "github.com/ClickHouse/clickhouse-go/v2",
+    "Description": "ClickHouse driver — OLAP/analytics database"
+  },
+  {
+    "ID": "migrate",
+    "Name": "golang-migrate",
+    "Category": "migration",
+    "ImportPath": "github.com/golang-migrate/migrate/v4",
+    "Description": "Database schema migrations (MySQL, Postgres, Mongo, ...)"
+  },
+  {
+    "ID": "redis",
+    "Name": "redis",
+    "Category": "cache",
+    "ImportPath": "github.com/redis/go-redis/v9",
+    "Description": "Redis client — cache, sessions, or NoSQL key-value store"
+  },
+  {
+    "ID": "memcache",
+    "Name": "gomemcache",
+    "Category": "cache",
+    "ImportPath": "github.com/bradfitz/gomemcache/memcache",
+    "Description": "Memcached client"
+  },
+  {
+    "ID": "ristretto",
+    "Name": "Ristretto",
+    "Category": "cache",
+    "ImportPath": "github.com/dgraph-io/ristretto",
+    "Description": "High-performance in-memory cache with cost-based eviction"
+  },
+  {
+    "ID": "bigcache",
+    "Name": "BigCache",
+    "Category": "cache",
+    "ImportPath": "github.com/allegro/bigcache/v3",
+    "Description": "Fast, GC-friendly in-memory cache for large datasets"
+  },
+  {
+    "ID": "go-cache",
+    "Name": "go-cache",
+    "Category": "cache",
+    "ImportPath": "github.com/patrickmn/go-cache",
+    "Description": "Simple in-memory key-value store with TTL"
+  },
+  {
+    "ID": "groupcache",
+    "Name": "groupcache",
+    "Category": "cache",
+    "ImportPath": "github.com/golang/groupcache",
+    "Description": "Distributed caching library (memcached alternative)"
+  },
+  {
+    "ID": "kafka-go",
+    "Name": "kafka-go",
+    "Category": "broker",
+    "ImportPath": "github.com/segmentio/kafka-go",
+    "Description": "Kafka client library for event streaming"
+  },
+  {
+    "ID": "sarama",
+    "Name": "Sarama",
+    "Category": "broker",
+    "ImportPath": "github.com/IBM/sarama",
+    "Description": "Kafka client library (alternative to kafka-go)"
+  },
+  {
+    "ID": "nats",
+    "Name": "NATS",
+    "Category": "broker",
+    "ImportPath": "github.com/nats-io/nats.go",
+    "Description": "Lightweight, high-throughput pub/sub messaging"
+  },
+  {
+    "ID": "rabbitmq",
+    "Name": "RabbitMQ (amqp091)",
+    "Category": "broker",
+    "ImportPath": "github.com/rabbitmq/amqp091-go",
+    "Description": "AMQP 0-9-1 client for RabbitMQ — reliable queues"
+  },
+  {
+    "ID": "watermill",
+    "Name": "Watermill",
+    "Category": "broker",
+    "ImportPath": "github.com/ThreeDotsLabs/watermill",
+    "Description": "Event-driven applications, broker-agnostic pub/sub"
+  },
+  {
+    "ID": "pubsub",
+    "Name": "Google Pub/Sub",
+    "Category": "broker",
+    "ImportPath": "cloud.google.com/go/pubsub",
+    "Description": "Google Cloud Pub/Sub client"
+  },
+  {
+    "ID": "zap",
+    "Name": "Uber Zap",
+    "Category": "logger",
+    "ImportPath": "go.uber.org/zap",
+    "Description": "Blazing fast, structured, leveled logging"
+  },
+  {
+    "ID": "logrus",
+    "Name": "Logrus",
+    "Category": "logger",
+    "ImportPath": "github.com/sirupsen/logrus",
+    "Description": "Structured, pluggable logging"
+  },
+  {
+    "ID": "zerolog",
+    "Name": "Zerolog",
+    "Category": "logger",
+    "ImportPath": "github.com/rs/zerolog",
+    "Description": "Zero-allocation JSON logger"
+  },
+  {
+    "ID": "otel",
+    "Name": "OpenTelemetry",
+    "Category": "tracing",
+    "ImportPath": "go.opentelemetry.io/otel",
+    "Description": "Distributed tracing and metrics instrumentation API"
+  },
+  {
+    "ID": "prometheus",
+    "Name": "Prometheus client",
+    "Category": "metrics",
+    "ImportPath": "github.com/prometheus/client_golang",
+    "Description": "Prometheus metrics client for exposing /metrics"
+  },
+  {
+    "ID": "sentry",
+    "Name": "Sentry",
+    "Category": "tracing",
+    "ImportPath": "github.com/getsentry/sentry-go",
+    "Description": "Error tracking and performance monitoring"
+  },
+  {
+    "ID": "statsd",
+    "Name": "DataDog statsd",
+    "Category": "metrics",
+    "ImportPath": "github.com/DataDog/datadog-go/v5",
+    "Description": "StatsD/DogStatsD metrics client"
+  },
+  {
+    "ID": "jwt",
+    "Name": "golang-jwt",
+    "Category": "auth",
+    "ImportPath": "github.com/golang-jwt/jwt/v5",
+    "Description": "JSON Web Token creation and verification"
+  },
+  {
+    "ID": "crypto",
+    "Name": "golang.org/x/crypto",
+    "Category": "auth",
+    "ImportPath": "golang.org/x/crypto",
+    "Description": "Password hashing (bcrypt) and extended cryptography"
+  },
+  {
+    "ID": "casbin",
+    "Name": "Casbin",
+    "Category": "auth",
+    "ImportPath": "github.com/casbin/casbin/v2",
+    "Description": "Authorization library — RBAC/ABAC access control"
+  },
+  {
+    "ID": "oauth2",
+    "Name": "golang.org/x/oauth2",
+    "Category": "auth",
+    "ImportPath": "golang.org/x/oauth2",
+    "Description": "OAuth2 client implementation"
+  },
+  {
+    "ID": "oidc",
+    "Name": "go-oidc",
+    "Category": "auth",
+    "ImportPath": "github.com/coreos/go-oidc/v3",
+    "Description": "OpenID Connect client"
+  },
+  {
+    "ID": "go-jose",
+    "Name": "go-jose",
+    "Category": "auth",
+    "ImportPath": "github.com/go-jose/go-jose/v4",
+    "Description": "JOSE — JWT/JWS/JWE/JWK implementation"
+  },
+  {
+    "ID": "dig",
+    "Name": "Uber Dig",
+    "Category": "di",
+    "ImportPath": "go.uber.org/dig",
+    "Description": "Reflection-based dependency injection container"
+  },
+  {
+    "ID": "wire",
+    "Name": "Google Wire",
+    "Category": "di",
+    "ImportPath": "github.com/google/wire",
+    "Description": "Compile-time dependency injection code generator"
+  },
+  {
+    "ID": "fx",
+    "Name": "Uber Fx",
+    "Category": "di",
+    "ImportPath": "go.uber.org/fx",
+    "Description": "Application framework built on top of Dig"
+  },
+  {
+    "ID": "viper",
+    "Name": "Viper",
+    "Category": "config",
+    "ImportPath": "github.com/spf13/viper",
+    "Description": "Config management across files, env vars, and flags"
+  },
+  {
+    "ID": "godotenv",
+    "Name": "godotenv",
+    "Category": "config",
+    "ImportPath": "github.com/joho/godotenv",
+    "Description": "Loads environment variables from a .env file"
+  },
+  {
+    "ID": "koanf",
+    "Name": "Koanf",
+    "Category": "config",
+    "ImportPath": "github.com/knadh/koanf/v2",
+    "Description": "Lightweight, modular config loader (Viper alternative)"
+  },
+  {
+    "ID": "envconfig",
+    "Name": "envconfig",
+    "Category": "config",
+    "ImportPath": "github.com/kelseyhightower/envconfig",
+    "Description": "Populate structs directly from environment variables"
+  },
+  {
+    "ID": "go-ethereum",
+    "Name": "go-ethereum",
+    "Category": "blockchain",
+    "ImportPath": "github.com/ethereum/go-ethereum",
+    "Description": "Ethereum protocol client — signing, ABI, JSON-RPC"
+  },
+  {
+    "ID": "solana-go",
+    "Name": "solana-go",
+    "Category": "blockchain",
+    "ImportPath": "github.com/gagliardetto/solana-go",
+    "Description": "Solana blockchain SDK for Go"
+  },
+  {
+    "ID": "btcd",
+    "Name": "btcd",
+    "Category": "blockchain",
+    "ImportPath": "github.com/btcsuite/btcd",
+    "Description": "Full Bitcoin protocol implementation in Go"
+  },
+  {
+    "ID": "cosmos-sdk",
+    "Name": "Cosmos SDK",
+    "Category": "blockchain",
+    "ImportPath": "github.com/cosmos/cosmos-sdk",
+    "Description": "Framework for building application-specific blockchains"
+  },
+  {
+    "ID": "fabric-sdk-go",
+    "Name": "Hyperledger Fabric SDK",
+    "Category": "blockchain",
+    "ImportPath": "github.com/hyperledger/fabric-sdk-go",
+    "Description": "Permissioned enterprise blockchain SDK"
+  },
+  {
+    "ID": "cometbft",
+    "Name": "CometBFT",
+    "Category": "blockchain",
+    "ImportPath": "github.com/cometbft/cometbft",
+    "Description": "BFT state machine replication / consensus engine"
+  },
+  {
+    "ID": "aws-sdk",
+    "Name": "AWS SDK v2",
+    "Category": "cloud",
+    "ImportPath": "github.com/aws/aws-sdk-go-v2",
+    "Description": "AWS SDK core — pair with per-service submodules"
+  },
+  {
+    "ID": "gcp-sdk",
+    "Name": "Google Cloud SDK",
+    "Category": "cloud",
+    "ImportPath": "cloud.google.com/go",
+    "Description": "Google Cloud client libraries root module"
+  },
+  {
+    "ID": "azure-sdk",
+    "Name": "Azure SDK",
+    "Category": "cloud",
+    "ImportPath": "github.com/Azure/azure-sdk-for-go",
+    "Description": "Azure SDK for Go"
+  },
+  {
+    "ID": "minio",
+    "Name": "MinIO client",
+    "Category": "cloud",
+    "ImportPath": "github.com/minio/minio-go/v7",
+    "Description": "S3-compatible object storage client"
+  },
+  {
+    "ID": "k8s-client",
+    "Name": "client-go",
+    "Category": "cloud",
+    "ImportPath": "k8s.io/client-go",
+    "Description": "Official Kubernetes API client"
+  },
+  {
+    "ID": "consul",
+    "Name": "Consul API",
+    "Category": "cloud",
+    "ImportPath": "github.com/hashicorp/consul/api",
+    "Description": "Service discovery and distributed config client"
+  },
+  {
+    "ID": "vault",
+    "Name": "Vault API",
+    "Category": "cloud",
+    "ImportPath": "github.com/hashicorp/vault/api",
+    "Description": "Secrets management client"
+  },
+  {
+    "ID": "docker-client",
+    "Name": "Docker client",
+    "Category": "cloud",
+    "ImportPath": "github.com/docker/docker/client",
+    "Description": "Docker Engine API client"
+  },
+  {
+    "ID": "cobra",
+    "Name": "Cobra",
+    "Category": "cli",
+    "ImportPath": "github.com/spf13/cobra",
+    "Description": "Modern CLI framework — commands, flags, subcommands"
+  },
+  {
+    "ID": "urfave-cli",
+    "Name": "urfave/cli",
+    "Category": "cli",
+    "ImportPath": "github.com/urfave/cli/v3",
+    "Description": "Simple, fast package for building CLI apps"
+  },
+  {
+    "ID": "pflag",
+    "Name": "pflag",
+    "Category": "cli",
+    "ImportPath": "github.com/spf13/pflag",
+    "Description": "POSIX/GNU-style command-line flags, pairs with Cobra"
+  },
+  {
+    "ID": "promptui",
+    "Name": "promptui",
+    "Category": "cli",
+    "ImportPath": "github.com/manifoldco/promptui",
+    "Description": "Interactive command-line prompts and selects"
+  },
+  {
+    "ID": "survey",
+    "Name": "Survey",
+    "Category": "cli",
+    "ImportPath": "github.com/AlecAivazis/survey/v2",
+    "Description": "Interactive CLI prompts — forms, confirms, multi-select"
+  },
+  {
+    "ID": "asynq",
+    "Name": "Asynq",
+    "Category": "queue",
+    "ImportPath": "github.com/hibiken/asynq",
+    "Description": "Redis-backed distributed task queue"
+  },
+  {
+    "ID": "river",
+    "Name": "River",
+    "Category": "queue",
+    "ImportPath": "github.com/riverqueue/river",
+    "Description": "Postgres-backed background job queue"
+  },
+  {
+    "ID": "gocraft-work",
+    "Name": "gocraft/work",
+    "Category": "queue",
+    "ImportPath": "github.com/gocraft/work",
+    "Description": "Redis-backed background job/worker pool"
+  },
+  {
+    "ID": "stripe-go",
+    "Name": "Stripe",
+    "Category": "payment",
+    "ImportPath": "github.com/stripe/stripe-go/v81",
+    "Description": "Stripe payments API client"
+  },
+  {
+    "ID": "paypal",
+    "Name": "PayPal",
+    "Category": "payment",
+    "ImportPath": "github.com/plutov/paypal/v4",
+    "Description": "PayPal REST API client"
+  },
+  {
+    "ID": "testify",
+    "Name": "testify",
+    "Category": "testing",
+    "ImportPath": "github.com/stretchr/testify",
+    "Description": "Testing toolkit — assertions, mocks, suites"
+  },
+  {
+    "ID": "gomock",
+    "Name": "go.uber.org/mock",
+    "Category": "testing",
+    "ImportPath": "go.uber.org/mock",
+    "Description": "Mocking framework for Go interfaces"
+  },
+  {
+    "ID": "ginkgo",
+    "Name": "Ginkgo",
+    "Category": "testing",
+    "ImportPath": "github.com/onsi/ginkgo/v2",
+    "Description": "BDD-style testing framework"
+  },
+  {
+    "ID": "gomega",
+    "Name": "Gomega",
+    "Category": "testing",
+    "ImportPath": "github.com/onsi/gomega",
+    "Description": "Matcher/assertion library, pairs with Ginkgo"
+  },
+  {
+    "ID": "gofakeit",
+    "Name": "gofakeit",
+    "Category": "testing",
+    "ImportPath": "github.com/brianvoe/gofakeit/v7",
+    "Description": "Fake/random test data generator"
+  },
+  {
+    "ID": "go-cmp",
+    "Name": "go-cmp",
+    "Category": "testing",
+    "ImportPath": "github.com/google/go-cmp",
+    "Description": "Deep equality comparison for tests"
+  },
+  {
+    "ID": "httpexpect",
+    "Name": "httpexpect",
+    "Category": "testing",
+    "ImportPath": "github.com/gavv/httpexpect/v2",
+    "Description": "End-to-end HTTP and REST API testing"
+  },
+  {
+    "ID": "gock",
+    "Name": "Gock",
+    "Category": "testing",
+    "ImportPath": "github.com/h2non/gock",
+    "Description": "HTTP traffic mocking and expectations"
+  },
+  {
+    "ID": "fyne",
+    "Name": "Fyne",
+    "Category": "gui",
+    "ImportPath": "fyne.io/fyne/v2",
+    "Description": "Cross-platform desktop/mobile GUI toolkit"
+  },
+  {
+    "ID": "ebiten",
+    "Name": "Ebiten",
+    "Category": "gui",
+    "ImportPath": "github.com/hajimehoshi/ebiten/v2",
+    "Description": "Simple, fast 2D game engine"
+  },
+  {
+    "ID": "wails",
+    "Name": "Wails",
+    "Category": "gui",
+    "ImportPath": "github.com/wailsapp/wails/v2",
+    "Description": "Build desktop apps with Go + a web frontend"
+  },
+  {
+    "ID": "raylib",
+    "Name": "raylib-go",
+    "Category": "gui",
+    "ImportPath": "github.com/gen2brain/raylib-go/raylib",
+    "Description": "Go bindings for raylib — 2D/3D game programming"
+  },
+  {
+    "ID": "validator",
+    "Name": "go playground validator",
+    "Category": "validation",
+    "ImportPath": "github.com/go-playground/validator/v10",
+    "Description": "Struct and field validation via struct tags"
+  },
+  {
+    "ID": "swag",
+    "Name": "Swaggo",
+    "Category": "documentation",
+    "ImportPath": "github.com/swaggo/swag",
+    "Description": "Generates Swagger 2.0 docs from Go annotations"
+  },
+  {
+    "ID": "uuid",
+    "Name": "Google UUID",
+    "Category": "utility",
+    "ImportPath": "github.com/google/uuid",
+    "Description": "UUID generation"
+  },
+  {
+    "ID": "decimal",
+    "Name": "shopspring decimal",
+    "Category": "utility",
+    "ImportPath": "github.com/shopspring/decimal",
+    "Description": "Arbitrary-precision decimal — safe money/finance math"
+  },
+  {
+    "ID": "run",
+    "Name": "oklog/run",
+    "Category": "utility",
+    "ImportPath": "github.com/oklog/run",
+    "Description": "Actor-group lifecycle — coordinated graceful shutdown"
+  },
+  {
+    "ID": "cron",
+    "Name": "robfig/cron",
+    "Category": "utility",
+    "ImportPath": "github.com/robfig/cron/v3",
+    "Description": "Cron-style job scheduler"
+  },
+  {
+    "ID": "ratelimit",
+    "Name": "golang.org/x/time",
+    "Category": "utility",
+    "ImportPath": "golang.org/x/time",
+    "Description": "Token-bucket rate limiting"
+  },
+  {
+    "ID": "gobreaker",
+    "Name": "sony/gobreaker",
+    "Category": "utility",
+    "ImportPath": "github.com/sony/gobreaker",
+    "Description": "Circuit breaker pattern for fault-tolerant calls"
+  },
+  {
+    "ID": "resty",
+    "Name": "Resty",
+    "Category": "utility",
+    "ImportPath": "github.com/go-resty/resty/v2",
+    "Description": "Simple, chainable HTTP client"
+  },
+  {
+    "ID": "go-money",
+    "Name": "go-money",
+    "Category": "utility",
+    "ImportPath": "github.com/Rhymond/go-money",
+    "Description": "Money value type — safe currency arithmetic for finance"
+  },
+  {
+    "ID": "excelize",
+    "Name": "Excelize",
+    "Category": "utility",
+    "ImportPath": "github.com/xuri/excelize/v2",
+    "Description": "Read/write Excel .xlsx files — reports, exports"
+  },
+  {
+    "ID": "copier",
+    "Name": "jinzhu/copier",
+    "Category": "utility",
+    "ImportPath": "github.com/jinzhu/copier",
+    "Description": "Struct-to-struct field copying"
+  },
+  {
+    "ID": "msgpack",
+    "Name": "msgpack",
+    "Category": "utility",
+    "ImportPath": "github.com/vmihailenco/msgpack/v5",
+    "Description": "Compact binary serialization — faster/smaller than JSON"
+  },
+  {
+    "ID": "x-sync",
+    "Name": "golang.org/x/sync",
+    "Category": "utility",
+    "ImportPath": "golang.org/x/sync",
+    "Description": "errgroup, singleflight, semaphore — concurrency helpers"
+  },
+  {
+    "ID": "mapstructure",
+    "Name": "mapstructure",
+    "Category": "utility",
+    "ImportPath": "github.com/mitchellh/mapstructure",
+    "Description": "Decode generic maps into structs"
+  },
+  {
+    "ID": "sprig",
+    "Name": "Sprig",
+    "Category": "utility",
+    "ImportPath": "github.com/Masterminds/sprig/v3",
+    "Description": "100+ helper functions for text/template and html/template"
+  },
+  {
+    "ID": "gocsv",
+    "Name": "gocsv",
+    "Category": "utility",
+    "ImportPath": "github.com/gocarina/gocsv",
+    "Description": "Struct-based CSV marshal/unmarshal"
+  },
+  {
+    "ID": "go-mail",
+    "Name": "go-mail",
+    "Category": "utility",
+    "ImportPath": "github.com/wneessen/go-mail",
+    "Description": "Modern SMTP email client"
+  },
+  {
+    "ID": "gofpdf",
+    "Name": "gofpdf",
+    "Category": "utility",
+    "ImportPath": "github.com/jung-kurt/gofpdf",
+    "Description": "PDF generation — invoices, reports"
+  },
+  {
+    "ID": "lo",
+    "Name": "samber/lo",
+    "Category": "utility",
+    "ImportPath": "github.com/samber/lo",
+    "Description": "Lodash-style generic slice/map utility functions"
+  },
+  {
+    "ID": "ants",
+    "Name": "ants",
+    "Category": "utility",
+    "ImportPath": "github.com/panjf2000/ants/v2",
+    "Description": "High-performance goroutine pool"
+  },
+  {
+    "ID": "retry-go",
+    "Name": "avast/retry-go",
+    "Category": "utility",
+    "ImportPath": "github.com/avast/retry-go/v4",
+    "Description": "Simple retry mechanism with backoff strategies"
+  }
+]
