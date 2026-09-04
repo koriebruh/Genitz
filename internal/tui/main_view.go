@@ -67,11 +67,27 @@ type Model struct {
 	IncludeDocker bool
 
 	// StepExtras checkboxes (Init mode only). ExtrasCursor is the row index
-	// into the fixed 3-item list rendered by viewExtras.
+	// into the fixed item list rendered by viewExtras (extraItems, plus the
+	// trailing license-cycle row).
 	IncludeCI       bool
 	IncludeMakefile bool
 	IncludeGitInit  bool
-	ExtrasCursor    int
+	IncludeReadme   bool
+	// LicenseChoice is one of "", "mit", "apache-2.0" — cycled on the last
+	// StepExtras row instead of a boolean checkbox, since it's a 3-way pick.
+	LicenseChoice string
+	ExtrasCursor  int
+
+	// PresetOverlayOpen shows the preset bundle list over StepDeps ("p" to
+	// open, enter to apply, esc to close). PresetCursor is its row index.
+	PresetOverlayOpen bool
+	PresetCursor      int
+
+	// RemoveMode flips StepDeps/StepReview labels and BuildSteps semantics
+	// for `genitz remove`'s interactive picker — same Model/Step machinery
+	// as Add mode, just relabeled and scoped to already-installed deps (see
+	// RemoveModel).
+	RemoveMode bool
 
 	// LookupComposeServices is injected by main.go (generator.ComposeServiceNames)
 	// so StepDocker can preview which selected deps map to a compose service,
@@ -127,6 +143,23 @@ func AddModel(existingModule string) *Model {
 	}
 }
 
+// RemoveModel constructs the model for `genitz remove`'s interactive picker:
+// same StepDeps/StepReview/StepInstalling machinery as AddModel, but scoped
+// to installed (registry-matched, so removable-by-ID) dependencies only, and
+// RemoveMode flips the relevant labels.
+func RemoveModel(existingModule string, installed []Dependency) *Model {
+	return &Model{
+		Mode:           ModeAdd,
+		Step:           StepDeps,
+		ExistingModule: existingModule,
+		Registry:       installed,
+		Chosen:         make(map[int]Dependency),
+		ExpandedGroup:  -1,
+		Spinner:        newSpinner(),
+		RemoveMode:     true,
+	}
+}
+
 func (m *Model) Init() tea.Cmd { return nil }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -168,6 +201,8 @@ func (m *Model) View() string {
 		content = m.viewFolder()
 	case m.Step == StepPackage:
 		content = m.viewPackage()
+	case m.Step == StepDeps && m.PresetOverlayOpen:
+		content = m.renderPresetOverlay()
 	case m.Step == StepDeps:
 		content = m.renderDependencyView()
 	case m.Step == StepDocker:
@@ -457,6 +492,31 @@ func (m *Model) handlePackageKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 }
 
 func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	if m.PresetOverlayOpen {
+		switch msg.String() {
+		case "up", "k":
+			if m.PresetCursor > 0 {
+				m.PresetCursor--
+			}
+			return nil, true
+		case "down", "j":
+			if m.PresetCursor < len(Presets)-1 {
+				m.PresetCursor++
+			}
+			return nil, true
+		case "enter":
+			m.applyPreset(Presets[m.PresetCursor])
+			m.PresetOverlayOpen = false
+			return nil, true
+		case "esc", "p":
+			m.PresetOverlayOpen = false
+			return nil, true
+		case "q":
+			return tea.Quit, true
+		}
+		return nil, true
+	}
+
 	// Search mode: most keys still work, printable chars go to query.
 	if m.SearchActive {
 		switch msg.String() {
@@ -503,6 +563,11 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 	case "/":
 		m.SearchActive = true
 		return nil, true
+	case "p":
+		if !m.RemoveMode {
+			m.PresetOverlayOpen = true
+			return nil, true
+		}
 	case "esc":
 		if m.SearchQuery != "" {
 			m.SearchQuery = ""
@@ -608,8 +673,12 @@ func (m *Model) viewPackage() string {
 func (m *Model) viewReview() string {
 	var b strings.Builder
 
-	b.WriteString(styles.PanelLabel.Render("REVIEW") + "\n")
-	b.WriteString(styles.PanelHint.Render("Confirm your configuration before scaffolding") + "\n\n")
+	reviewLabel, reviewHint := "REVIEW", "Confirm your configuration before scaffolding"
+	if m.RemoveMode {
+		reviewLabel, reviewHint = "REVIEW REMOVAL", "Confirm which dependencies to remove"
+	}
+	b.WriteString(styles.PanelLabel.Render(reviewLabel) + "\n")
+	b.WriteString(styles.PanelHint.Render(reviewHint) + "\n\n")
 
 	const keyW = 16
 	hrWidth := m.Width - 8
@@ -642,10 +711,20 @@ func (m *Model) viewReview() string {
 		b.WriteString(summaryRow("Folder", folder, styles.StepActive))
 		b.WriteString(summaryRow("Module", pkg, styles.StepActive))
 		b.WriteString(summaryRow("Output", "./"+folder+"/", styles.StepPending))
+		if m.LicenseChoice != "" {
+			b.WriteString(summaryRow("License", m.LicenseChoice, styles.StepPending))
+		}
+		if m.IncludeReadme {
+			b.WriteString(summaryRow("README.md", "yes", styles.StepPending))
+		}
 	}
 	b.WriteString("\n")
 
-	b.WriteString(styles.Description.Render("  DEPENDENCIES") + "\n")
+	depsLabel := "DEPENDENCIES"
+	if m.RemoveMode {
+		depsLabel = "TO REMOVE"
+	}
+	b.WriteString(styles.Description.Render("  "+depsLabel) + "\n")
 	b.WriteString(hr)
 
 	if len(m.Chosen) == 0 {

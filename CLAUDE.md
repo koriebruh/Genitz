@@ -21,7 +21,35 @@ Go CLI (Bubble Tea TUI, styled like Claude Code) with two flows:
 - `genitz add` — the add wizard; errors out if cwd has no `go.mod` (told to
   run `go mod init` or `genitz init` instead of silently guessing). Flags
   work the same way as init.
+- `genitz remove` — the removal wizard (`RemoveModel` in `main_view.go`,
+  `RemoveMode` flag on `Model`), scoped to registry-matched deps already in
+  `go.mod` (`generator.ListInstalled`). Runs `go get <path>@none` + `go mod
+  tidy` per dep (`BuildRemoveSteps` in `generate.go`) — the documented way to
+  drop a requirement; if the code still imports it, tidy re-adds it, which is
+  correct (genitz doesn't scan source to know).
+- `genitz list` — prints direct deps from `go.mod`'s require block
+  (`generator.ListInstalled`/`PrintInstalled`), cross-referenced against the
+  registry; entries with no registry match print as `(unmanaged)`. Note:
+  since scaffolded projects only get a bare, import-free `main.go`, `go mod
+  tidy` strips any dep the wizard installs until the user actually imports
+  it — an empty `list` right after `init`/`add` is expected, not a bug.
+- `genitz version` / `--version` / `-v` — prints `generator.Version` (hand-
+  bumped constant in `version.go`, no ldflags/goreleaser pipeline yet).
+- `genitz completion bash|zsh|fish` — static, hand-authored completion
+  scripts (no cobra in this codebase) covering `subcommandNames` in
+  `main.go`; `main_test.go`'s `TestCompletionScriptsCoverAllSubcommands`
+  guards against that list drifting from the real dispatch.
 - `genitz help` — usage text.
+
+All of `init`/`add`/`remove` accept `--dry-run` (prints `InstallStep` labels
+without calling `.Run()` — see `runStepsPlain`'s `dryRun` param) and, on
+`add`/`init`, `--preset <id>` to expand a bundle from `internal/tui/presets.go`
+before merging with `--deps` (`mergeDeps` dedupes by `ImportPath`, preset
+first so an explicit `--deps` entry wins on conflict). `main()` also runs a
+`generator.CheckBinary("go")` preflight before any dispatch, and
+`Requirement.validate()` checks `git` specifically when `IncludeGitInit` is
+set — both fail fast with a clear message instead of a raw exec error
+surfacing mid-`InstallStep` animation.
 
 There is no project-template/architecture-scaffolding feature (removed on
 purpose — see git history around "hapus dulu aja fokus untuk cli
@@ -42,14 +70,25 @@ depedency"). Only bare project init + dependency install exist today.
   - `install.go` — `InstallStep` (label + `Run func() error`), the animated
     `StepInstalling` screen driven by `stepDoneMsg`/`spinner.TickMsg`.
   - `docker_step.go` — the `StepDocker` toggle screen (Init mode only).
+  - `extras_step.go` — the `StepExtras` checkbox list (CI/Makefile/git
+    init/README) plus the trailing License cycle row.
+  - `presets.go` — `Preset`/`Presets`, `FindPreset`, `Model.applyPreset`,
+    and the preset overlay rendered over `StepDeps` (`p` to open).
+  - `registry_override.go` — merges an optional user/team registry file
+    into the embedded `DependencyRegistry` at package init.
   - `mode.go` — `Mode` (Init/Add) and `Step` enums.
   - `splash.go` / `styles.go` — ASCII logo, lipgloss styles.
 - `internal/generator/` — non-interactive scaffolding logic:
   - `generate.go` — `Requirement`, `PrepareNewProject` (fast/sync: creates
-    the dir + `main.go`), `BuildInstallSteps`/`BuildAddSteps` (return
-    `[]tui.InstallStep` for the TUI to run and animate), `PrintDocs`.
+    the dir + `main.go`), `BuildInstallSteps`/`BuildAddSteps`/
+    `BuildRemoveSteps` (return `[]tui.InstallStep` for the TUI to run and
+    animate), `PrintDocs`.
   - `docker.go` — Dockerfile/`.dockerignore`/`docker-compose.yml` content
     generation, called from `BuildInstallSteps` when `Requirement.IncludeDocker`.
+  - `list.go` — `ListInstalled`/`PrintInstalled`, backing `genitz list`.
+  - `readme.go` / `license.go` — README.md/LICENSE content generators.
+  - `version.go` — `Version` constant.
+  - `preflight.go` — `CheckBinary`, used for the `go`/`git` checks above.
 
 ## Dependency picker UX
 
@@ -120,6 +159,43 @@ mirroring `StepDocker`'s shape but for multiple items (`extras_step.go`).
   failures are fatal, so anything depending on external auth state
   (a missing/unauthenticated `gh`) can't be allowed to abort an
   otherwise-successful run.
+
+## Presets, README/LICENSE, version pinning, registry overrides
+
+- **Presets** (`internal/tui/presets.go`) are named bundles of registry IDs
+  (`web-api`, `grpc-service`, `auth-service`, `cli-tool` as of writing).
+  `Model.applyPreset` unions a preset's deps into `Chosen` — it never
+  removes an existing pick, so applying one is always additive. In the
+  wizard, `p` on `StepDeps` opens the overlay (`PresetOverlayOpen`); in
+  flags mode, `--preset <id>` does the same via `resolvePresetDeps` +
+  `mergeDeps` in `main.go`. IDs in `Preset.DepIDs` must exist in
+  `registry.json` — verify with `tui.FindByID` before adding one.
+- **README/LICENSE** — `IncludeReadme`/`LicenseChoice` on `Model`, cycled on
+  the trailing `StepExtras` row (`extraItems` is the checkbox list;
+  `licenseChoices`/`nextLicenseChoice` cycle the 3-way License row after
+  it). `readmeContent`/`licenseContent` in `internal/generator` are pure
+  string generators; `BuildInstallSteps` writes them right after the deps
+  loop. `licenseContent` leaves `[COPYRIGHT HOLDER]`/`[year]` as literal
+  placeholders rather than guessing a name — same "don't guess" spirit as
+  `detectConfigLib`.
+- **Version pinning** — flags-only (`--deps id@version`, parsed in
+  `resolveDeps` in `main.go`), not exposed in the TUI (no text input on the
+  picker). `Requirement.DepVersions` maps import path → version;
+  `installArg` in `generate.go` appends `@version` to the `go get` call
+  when present, otherwise installs unpinned/latest — used by both
+  `BuildInstallSteps` and `BuildAddSteps`.
+- **User/team registry override** (`internal/tui/registry_override.go`) —
+  an optional `$XDG_CONFIG_HOME/genitz/registry.json` (same JSON shape as
+  the embedded `registry.json`) merged into `DependencyRegistry` at package
+  init: matching `ID` overrides in place, a new `ID` appends. Unlike the
+  embedded file (`mustLoadRegistry`, panics on bad JSON — that'd be a
+  genitz bug), this is untrusted external input, so a missing file,
+  invalid JSON, or an entry missing a required field is skipped with a
+  stderr warning instead of crashing the CLI.
+- **golangci-lint scaffold** — whenever `IncludeCI` is set, `BuildInstallSteps`
+  also writes `.golangci.yml` (`golangciConfigContent` in `ci.go`) and the
+  generated `ci.yml` gets a `golangci-lint-action` step — same "derive from
+  what's already selected, no separate toggle" pattern as the config stub.
 
 ## Docker support
 

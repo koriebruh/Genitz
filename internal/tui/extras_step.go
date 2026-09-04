@@ -33,10 +33,40 @@ var extraItems = []extraItem{
 		get:         func(m *Model) bool { return m.IncludeGitInit },
 		set:         func(m *Model, v bool) { m.IncludeGitInit = v },
 	},
+	{
+		label:       "README.md",
+		description: "project name, module path, quickstart, dependency list",
+		get:         func(m *Model) bool { return m.IncludeReadme },
+		set:         func(m *Model, v bool) { m.IncludeReadme = v },
+	},
+}
+
+// licenseChoices cycles through on the trailing StepExtras row — "" (none)
+// first so the default (nothing selected) is the first press away from
+// wherever the cycle currently sits.
+var licenseChoices = []string{"", "mit", "apache-2.0"}
+
+// nextLicenseChoice returns the next value in licenseChoices after current,
+// wrapping back to the start — used by the License row's space/enter cycle.
+func nextLicenseChoice(current string) string {
+	for i, c := range licenseChoices {
+		if c == current {
+			return licenseChoices[(i+1)%len(licenseChoices)]
+		}
+	}
+	return licenseChoices[0]
+}
+
+func licenseLabel(choice string) string {
+	if choice == "" {
+		return "none"
+	}
+	return choice
 }
 
 // handleExtrasKeys handles StepExtras (Init mode only): a short checkbox list.
 func (m *Model) handleExtrasKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
+	licenseRow := len(extraItems)
 	switch msg.String() {
 	case "up", "k":
 		if m.ExtrasCursor > 0 {
@@ -44,11 +74,15 @@ func (m *Model) handleExtrasKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	case "down", "j":
-		if m.ExtrasCursor < len(extraItems)-1 {
+		if m.ExtrasCursor < licenseRow {
 			m.ExtrasCursor++
 		}
 		return nil, true
 	case " ":
+		if m.ExtrasCursor == licenseRow {
+			m.LicenseChoice = nextLicenseChoice(m.LicenseChoice)
+			return nil, true
+		}
 		item := extraItems[m.ExtrasCursor]
 		item.set(m, !item.get(m))
 		return nil, true
@@ -93,10 +127,24 @@ func (m *Model) viewExtras() string {
 		b.WriteString("      " + styles.Description.Render(item.description) + "\n")
 	}
 
+	licenseRow := len(extraItems)
+	isActive := m.ExtrasCursor == licenseRow
+	cursor := "   "
+	if isActive {
+		cursor = styles.Cursor.Render(" ▶ ")
+	}
+	licenseText := "License: " + licenseLabel(m.LicenseChoice)
+	label := styles.Name.Render(licenseText)
+	if isActive {
+		label = styles.Selected.Render(licenseText)
+	}
+	b.WriteString(cursor + label + "\n")
+	b.WriteString("      " + styles.Description.Render("space to cycle: none / MIT / Apache-2.0") + "\n")
+
 	b.WriteString("\n")
 	b.WriteString(renderKeyHints([]keyHint{
 		{"↑↓ / jk", "navigate"},
-		{"space", "toggle"},
+		{"space", "toggle / cycle"},
 		{"enter", "continue"},
 		{"b", "back"},
 		{"q", "quit"},
