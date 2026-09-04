@@ -239,7 +239,7 @@ func (m *Model) renderFrame(content string) string {
 	b.WriteString(m.renderHeader(w))
 	b.WriteString(m.renderModeLine(w))
 	b.WriteString(m.renderStepNav(w))
-	b.WriteString(styles.Divider.Render(strings.Repeat("▀", dividerWidth(w))))
+	b.WriteString(styles.Divider.Render(strings.Repeat("█", dividerWidth(w))))
 	b.WriteString("\n\n")
 
 	pad := 3
@@ -695,7 +695,7 @@ func (m *Model) viewReview() string {
 	} else if hrWidth < 20 {
 		hrWidth = 20
 	}
-	hr := styles.Divider.Render(strings.Repeat("▀", hrWidth)) + "\n"
+	hr := styles.Divider.Render(strings.Repeat("█", hrWidth)) + "\n"
 
 	summaryRow := func(key, value string, valStyle lipgloss.Style) string {
 		k := lipgloss.NewStyle().Foreground(colorMuted).Width(keyW).Render(key)

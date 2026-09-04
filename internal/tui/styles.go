@@ -58,34 +58,40 @@ var (
 	installFailStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true)
 )
 
-// newUIStyles — hybrid brutalist accents: the gradient logo in splash.go
-// stays untouched, but structural chrome (cursor, checkbox, active step,
-// panel labels) switched from bare colored text to solid stamped
-// background-blocks, and italics dropped from hints/descriptions (raw
-// monospace over decorative slanting). Deliberately NOT a full border box
-// around Container — every screen's width math (hrWidth, MaxWidth calls,
-// etc.) already assumes no outer border, and retrofitting one risks
-// overflow across every panel for a purely cosmetic change. The stamped-
-// block treatment reads as brutalist without that width-safety risk.
+// newUIStyles — hybrid brutalist accents, redesigned for color cohesion
+// after the first pass read as an inconsistent cyan/green/pink patchwork.
+// Three colors now carry three distinct, consistent meanings instead of
+// being scattered by whichever screen: colorPrimary (purple, matches the
+// gradient logo's dominant tone) marks "active/selected/labeled" state —
+// cursor, the active step, panel labels; colorAccent (cyan) is reserved
+// only for keyboard-shortcut chips (KeyBadge), so it means one specific
+// thing; colorDone (green) is reserved only for genuine success/completion
+// (checked boxes, done steps) — it's no longer slapped on InputPrompt,
+// which doesn't represent a "done" state and looked like a stray traffic
+// light. The gradient logo in splash.go stays untouched. Still
+// deliberately NOT a full border box around Container — see the Layout
+// doc in CLAUDE.md for why.
 func newUIStyles() uiStyles {
+	stamp := lipgloss.NewStyle().Foreground(colorDark).Background(colorPrimary).Bold(true)
+
 	return uiStyles{
 		Brand:       lipgloss.NewStyle().Foreground(colorPrimary).Bold(true),
 		Name:        lipgloss.NewStyle().Foreground(colorText).Bold(true),
 		Selected:    lipgloss.NewStyle().Foreground(colorSelected).Bold(true),
 		Description: lipgloss.NewStyle().Foreground(colorMuted),
 
-		Cursor:   lipgloss.NewStyle().Foreground(colorDark).Background(colorAccent).Bold(true),
+		Cursor:   stamp,
 		Checkbox: lipgloss.NewStyle().Foreground(colorDark).Background(colorDone).Bold(true),
 
-		StepActive:  lipgloss.NewStyle().Foreground(colorDark).Background(colorAccent).Bold(true),
+		StepActive:  stamp,
 		StepDone:    lipgloss.NewStyle().Foreground(colorDone),
 		StepPending: lipgloss.NewStyle().Foreground(colorMuted),
 		StepSep:     lipgloss.NewStyle().Foreground(colorDivider),
 
-		PanelLabel: lipgloss.NewStyle().Foreground(colorDark).Background(colorAccent).Bold(true).Padding(0, 1),
+		PanelLabel: stamp.Padding(0, 1),
 		PanelHint:  lipgloss.NewStyle().Foreground(colorMuted),
 
-		InputPrompt: lipgloss.NewStyle().Foreground(colorDark).Background(colorDone).Bold(true),
+		InputPrompt: lipgloss.NewStyle().Foreground(colorDone).Bold(true),
 		InputNote:   lipgloss.NewStyle().Foreground(colorMuted),
 
 		KeyBadge: lipgloss.NewStyle().
