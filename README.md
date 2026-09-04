@@ -17,9 +17,12 @@ both through the same fast, keyboard-driven picker instead of hand-typing
 ![Genitz demo — scaffolding a new project and picking dependencies](docs/demo.gif)
 
 *Recorded straight from the terminal with [VHS](https://github.com/charmbracelet/vhs)
-— nothing staged. `genitz` → name the project → pick Fiber and Echo from the
-picker → review → confirm → the animated Installing step runs real `go get`
-→ doc links printed.*
+(script: [`docs/demo.tape`](docs/demo.tape)) — nothing staged. `genitz init` →
+name the project → module path → apply the "Web API" preset (Fiber + GORM +
+Viper + Zap) from the dependency picker → Docker toggle → Extras (CI, README,
+community files, MIT license) → review → confirm → the animated Installing
+step runs a real `go get` → doc links printed → a few of the newer standalone
+commands (`search`, `doctor`, `preset list`).*
 
 ## Features
 
