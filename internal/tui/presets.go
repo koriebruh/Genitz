@@ -41,9 +41,10 @@ var Presets = []Preset{
 	},
 }
 
-// FindPreset returns the preset with the given ID, if any.
+// FindPreset returns the preset with the given ID (built-in or
+// user-saved), if any.
 func FindPreset(id string) (Preset, bool) {
-	for _, p := range Presets {
+	for _, p := range AllPresets() {
 		if p.ID == id {
 			return p, true
 		}
@@ -57,7 +58,7 @@ func (m *Model) renderPresetOverlay() string {
 	b.WriteString(styles.PanelLabel.Render("PRESETS") + "\n")
 	b.WriteString(styles.PanelHint.Render("apply a starter bundle — adds to your current picks, doesn't replace them") + "\n\n")
 
-	for i, p := range Presets {
+	for i, p := range AllPresets() {
 		cursor := "  "
 		name := styles.Name.Render(p.Name)
 		if m.PresetCursor == i {

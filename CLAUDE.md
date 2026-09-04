@@ -33,12 +33,32 @@ Go CLI (Bubble Tea TUI, styled like Claude Code) with two flows:
   since scaffolded projects only get a bare, import-free `main.go`, `go mod
   tidy` strips any dep the wizard installs until the user actually imports
   it — an empty `list` right after `init`/`add` is expected, not a bug.
-- `genitz version` / `--version` / `-v` — prints `generator.Version` (hand-
-  bumped constant in `version.go`, no ldflags/goreleaser pipeline yet).
+- `genitz version` / `--version` / `-v` — prints `generator.Version`, a
+  `var` (not `const` — ldflags `-X` can't target a const) overridden at
+  release-build time by `.goreleaser.yaml`'s `-X .../generator.Version=...`;
+  `go install`/local builds get the `"0.1.0-dev"` literal default.
 - `genitz completion bash|zsh|fish` — static, hand-authored completion
   scripts (no cobra in this codebase) covering `subcommandNames` in
   `main.go`; `main_test.go`'s `TestCompletionScriptsCoverAllSubcommands`
   guards against that list drifting from the real dispatch.
+- `genitz doctor` — environment diagnostics (`RunDoctor`/`PrintDoctor` in
+  `doctor.go`): go (required)/git/docker/gh presence+version, `GOPROXY`,
+  and TCP reachability to `proxy.golang.org:443`.
+- `genitz config get|set <key>` — persistent user-level defaults
+  (`license`/`author`/`modulePrefix`) at `$XDG_CONFIG_HOME/genitz/config.json`
+  (`config.go`). `runInitFlags` applies them when the matching flag isn't
+  passed; `license.go`'s `ResolveLicenseHolder` tries `git config user.name`
+  first, config's `author` second.
+- `genitz search <keyword>` / `genitz info <id>` — registry lookup outside
+  the TUI (name/ID/category/description substring match; full entry detail).
+- `genitz preset list|save` — `preset save <id> --deps a,b,c` persists a
+  user-defined bundle to `$XDG_CONFIG_HOME/genitz/presets.json`
+  (`internal/tui/preset_override.go`, same override-by-ID/append-new-ID
+  merge shape as the registry override); `tui.AllPresets()` (built-in +
+  user) backs the picker overlay, `--preset`, and this listing everywhere.
+- `genitz history` — a local JSONL log of past `init`/`add`/`remove`
+  operations (`history.go`), best-effort (`RecordHistory` swallows its own
+  errors — a logging failure must never break the operation it's recording).
 - `genitz help` — usage text.
 
 All of `init`/`add`/`remove` accept `--dry-run` — for `add`/`remove` this
@@ -59,6 +79,58 @@ of a raw exec error surfacing mid-`InstallStep` animation.
 There is no project-template/architecture-scaffolding feature (removed on
 purpose — see git history around "hapus dulu aja fokus untuk cli
 depedency"). Only bare project init + dependency install exist today.
+
+## Logging
+
+`main.go` uses four standardized output helpers instead of ad hoc
+`fmt.Printf`/`Println` calls: `logError` (stderr, `✖` prefix), `logSuccess`
+(`✔`), `logWarn` (`⚠`), `logInfo` (no prefix). Errors go to stderr
+specifically so stdout stays clean for scripting (`genitz list --json`,
+`genitz search`, etc.) — use these instead of a bare `fmt.Println` for any
+new user-facing message. All user-facing strings are English — this is a
+general-purpose tool, not developed only for one locale.
+
+## Release pipeline
+
+`.goreleaser.yaml` + `.github/workflows/release.yml` build/publish on every
+`v*` tag push: cross-compiled binaries (linux/darwin/windows,
+amd64/arm64), checksums, a GitHub Release, and a Homebrew formula push to a
+`koriebruh/homebrew-tap` repo. That tap repo and a
+`HOMEBREW_TAP_GITHUB_TOKEN` secret don't exist yet as of writing — the
+`brews:` block will fail on a real release until both are set up; the
+binaries/checksums/GitHub Release publish as independent goreleaser steps
+regardless.
+
+## Community files, .env.example, .editorconfig
+
+- `.editorconfig` is written unconditionally by `PrepareNewProject` — no
+  toggle, same treatment as `main.go` itself, since it has no real
+  downside (unlike Docker/CI/etc., which are opt-in because they carry
+  actual behavioral consequences).
+- `.env.example` (`envExampleContent` in `docker.go`) is generated
+  alongside `docker-compose.yml` only when a selected service actually
+  declares `environment` entries — `docker-compose.yml` itself hardcodes
+  real default values (e.g. `POSTGRES_PASSWORD=postgres`) with nothing
+  telling a reader to externalize them; this is that nudge.
+- `IncludeCommunityFiles` (one `StepExtras` checkbox, `--community` flag)
+  bundles `CONTRIBUTING.md`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/*.md`,
+  and `.github/dependabot.yml` (`community.go`) — one toggle for all four
+  rather than four separate ones.
+- `VulnCheckAdvisory` (`vulncheck.go`) runs `govulncheck ./...` after a
+  successful `init`/`add` if the binary is on PATH — advisory-only, never
+  fatal, since `InstallStep` failures abort the whole run and a known
+  vulnerability in a freshly-picked dependency shouldn't block scaffolding.
+
+## Integration tests
+
+`internal/generator/integration_test.go` runs the real `go`/`git` toolchain
+end to end (init/add/remove against an actual temp-dir module) — unit
+tests alone kept missing bugs that only surface once a real binary touches
+disk (a `go.mod` parsing edge case was caught this way before shipping).
+Skipped under `-short`; the deps-touching tests additionally skip if
+`proxy.golang.org:443` isn't reachable, so they degrade gracefully offline
+instead of flaking. genitz's own CI (`go test ./...`, no `-short`) runs
+them for real.
 
 ## Layout
 

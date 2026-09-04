@@ -1,0 +1,58 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: genitz
+    main: .
+    binary: genitz
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/koriebruh/Genitz/internal/generator.Version={{.Version}}
+
+archives:
+  - id: genitz-archive
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+# Requires a separate koriebruh/homebrew-tap repository to exist, plus a
+# HOMEBREW_TAP_GITHUB_TOKEN secret (push access to that repo) on this repo
+# — neither exists yet as of writing. Until both are set up, this step will
+# fail on a real `goreleaser release` run without affecting the binaries/
+# checksums/GitHub Release, which publish as independent steps.
+brews:
+  - name: genitz
+    repository:
+      owner: koriebruh
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/koriebruh/Genitz"
+    description: "Go project starter & dependency picker CLI"
+    license: "Apache-2.0"
+    test: |
+      system "#{bin}/genitz", "version"

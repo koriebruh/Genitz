@@ -184,6 +184,49 @@ func composeContent(req Requirement) (content string, ok bool) {
 	return b.String(), true
 }
 
+// envExampleContent returns a .env.example listing the environment
+// variables the selected dependencies' compose services expect — the same
+// defaults docker-compose.yml itself uses, since docker-compose.yml
+// hardcodes real values (e.g. POSTGRES_PASSWORD=postgres) with nothing
+// telling a reader to externalize them. ok is false when none of the
+// matched services declare any environment (e.g. only redis/mongo/nats
+// selected), same "nothing to add" logic as composeContent.
+func envExampleContent(req Requirement) (content string, ok bool) {
+	ids := make([]string, 0, len(req.Deps))
+	for _, dep := range req.Deps {
+		ids = append(ids, dep.ID)
+	}
+	names := ComposeServiceNames(ids)
+	if len(names) == 0 {
+		return "", false
+	}
+
+	services := make(map[string]composeService, len(names))
+	for _, dep := range req.Deps {
+		if svc, found := dockerComposeServices[dep.ID]; found {
+			services[svc.name] = svc
+		}
+	}
+
+	var b strings.Builder
+	for _, name := range names {
+		svc := services[name]
+		if len(svc.environment) == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "# %s\n", name)
+		for _, e := range svc.environment {
+			b.WriteString(e + "\n")
+		}
+		b.WriteRune('\n')
+	}
+
+	if b.Len() == 0 {
+		return "", false
+	}
+	return strings.TrimRight(b.String(), "\n") + "\n", true
+}
+
 // dockerfileContent returns a multistage Dockerfile pinned to goVersion
 // (major.minor, e.g. "1.25").
 func dockerfileContent(goVersion string) string {
