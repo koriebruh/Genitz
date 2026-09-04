@@ -132,6 +132,42 @@ Skipped under `-short`; the deps-touching tests additionally skip if
 instead of flaking. genitz's own CI (`go test ./...`, no `-short`) runs
 them for real.
 
+## Differentiators: audit, undo, architecture diagram, preset import
+
+These exist to make the curated registry (genitz's actual unique asset) pay
+off beyond the initial picker, not just add more commands:
+
+- **`genitz audit`** (`audit.go`) reads the *existing* project's deps via
+  `ListInstalled` and cross-references `deprecatedReplacements` — a small,
+  hand-curated, cited map (currently `gorilla-mux`→`chi`, `logrus`→`zap`,
+  both backed by the package's own maintenance-mode announcement, not
+  genitz's opinion). `TestDeprecatedReplacementsPointToRealRegistryEntries`
+  guards against the map ever referencing a stale/renamed registry ID. Also
+  runs `VulnCheckAdvisory` so curation-quality and known-CVE checks live in
+  one command.
+- **Architecture diagram** (`architectureDiagram` in `readme.go`) — a
+  Mermaid `flowchart LR` in the generated README, grouping `req.Deps` by
+  `Category`. Pure generation from data already selected, no new curated
+  data; `mermaidNodeID` sanitizes registry IDs (which contain hyphens) into
+  safe node identifiers.
+- **`genitz undo`** (`undo.go`) snapshots `go.mod`/`go.sum` to
+  `$XDG_CONFIG_HOME/genitz/undo/<sha256 of abs project path>/` right before
+  `BuildAddSteps`/`BuildRemoveSteps` run (`SnapshotForUndo`, called from
+  `main.go` right before each of the four add/remove call sites — 2
+  interactive, 2 flags — skipped on `--dry-run` since nothing mutates).
+  Single-level LIFO by design (each snapshot overwrites the last, `Undo`
+  deletes the snapshot after restoring) — not a history tree, so it stays
+  predictable ("undoes the last add/remove") without needing its own
+  navigation UI. Scope is deliberately narrow: only `go.mod`/`go.sum`, no
+  other file.
+- **`genitz preset import <url>`** (`ImportPresetFromURL` in
+  `internal/tui/preset_override.go`) fetches a single `Preset` JSON object
+  over HTTP (10s timeout, 1MiB body cap) and validates every `DepIDs` entry
+  against `FindByID` *before* calling `SavePreset` — a malformed or
+  malicious response can't corrupt the local preset file. Same trust model
+  as the user running `curl <url>` themselves: their own explicit input,
+  not untrusted server-side input.
+
 ## Layout
 
 - `main.go` — entry point + subcommand dispatch (`runInit`/`runAdd`/
