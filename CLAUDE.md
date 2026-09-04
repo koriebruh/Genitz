@@ -41,15 +41,20 @@ Go CLI (Bubble Tea TUI, styled like Claude Code) with two flows:
   guards against that list drifting from the real dispatch.
 - `genitz help` — usage text.
 
-All of `init`/`add`/`remove` accept `--dry-run` (prints `InstallStep` labels
-without calling `.Run()` — see `runStepsPlain`'s `dryRun` param) and, on
-`add`/`init`, `--preset <id>` to expand a bundle from `internal/tui/presets.go`
-before merging with `--deps` (`mergeDeps` dedupes by `ImportPath`, preset
-first so an explicit `--deps` entry wins on conflict). `main()` also runs a
-`generator.CheckBinary("go")` preflight before any dispatch, and
-`Requirement.validate()` checks `git` specifically when `IncludeGitInit` is
-set — both fail fast with a clear message instead of a raw exec error
-surfacing mid-`InstallStep` animation.
+All of `init`/`add`/`remove` accept `--dry-run` — for `add`/`remove` this
+just skips `.Run()` on each `InstallStep` (see `runStepsPlain`'s `dryRun`
+param); `init`'s dry-run also calls `generator.CheckPreconditions` first
+(the same validate-and-check-destination logic `PrepareNewProject` runs
+before actually creating anything), so a dry run can't report a clean
+preview for a real run that would immediately fail. `add`/`init` also take
+`--preset <id>` to expand a bundle from `internal/tui/presets.go` before
+merging with `--deps` (`mergeDeps` dedupes by `ImportPath`; on a collision
+the preset's entry wins since it's passed as the first argument — inert
+today since both sides resolve an identical `tui.Dependency` via
+`FindByID`). `main()` also runs a `generator.CheckBinary("go")` preflight
+before any dispatch, and `Requirement.validate()` checks `git` specifically
+when `IncludeGitInit` is set — both fail fast with a clear message instead
+of a raw exec error surfacing mid-`InstallStep` animation.
 
 There is no project-template/architecture-scaffolding feature (removed on
 purpose — see git history around "hapus dulu aja fokus untuk cli

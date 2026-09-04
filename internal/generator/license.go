@@ -1,5 +1,18 @@
 package generator
 
+// validLicenseKinds are the values licenseContent recognizes, plus "" (no
+// license) — used by ValidLicenseKind so callers can reject a typo'd
+// --license flag instead of silently generating nothing.
+var validLicenseKinds = map[string]bool{"": true, "mit": true, "apache-2.0": true}
+
+// ValidLicenseKind reports whether kind is a value licenseContent
+// recognizes ("" for none, "mit", or "apache-2.0") — main.go uses this to
+// fail fast on an unrecognized --license value instead of silently
+// generating no LICENSE file.
+func ValidLicenseKind(kind string) bool {
+	return validLicenseKinds[kind]
+}
+
 // licenseContent returns the LICENSE body for kind ("mit" or "apache-2.0"),
 // and false for "" / "none" / anything unrecognized — no license file is
 // generated in that case rather than guessing. The copyright line is left

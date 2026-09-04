@@ -160,6 +160,10 @@ func runInitFlags(args []string) {
 		fmt.Println("\n--name is required for non-interactive init")
 		os.Exit(1)
 	}
+	if !generator.ValidLicenseKind(*license) {
+		fmt.Printf("\nunknown --license %q — expected \"mit\" or \"apache-2.0\"\n", *license)
+		os.Exit(1)
+	}
 	modulePath := *module
 	if modulePath == "" {
 		modulePath = *name
@@ -191,6 +195,11 @@ func runInitFlags(args []string) {
 	}
 
 	if *dryRun {
+		req, err = generator.CheckPreconditions(req)
+		if err != nil {
+			fmt.Printf("\n%v\n", err)
+			os.Exit(1)
+		}
 		fmt.Printf("[dry-run] would create ./%s/ (module %s)\n", req.ProjectName, req.PackageName)
 		if err := runStepsPlain(generator.BuildInstallSteps(req.ProjectName, req), true); err != nil {
 			fmt.Printf("\n%v\n", err)
@@ -206,7 +215,9 @@ func runInitFlags(args []string) {
 	}
 
 	if err := runStepsPlain(generator.BuildInstallSteps(targetPath, req), false); err != nil {
-		if removeErr := os.RemoveAll(req.ProjectName); removeErr == nil {
+		if removeErr := os.RemoveAll(req.ProjectName); removeErr != nil {
+			fmt.Printf("Warning: could not remove partial output %q: %v\n", req.ProjectName, removeErr)
+		} else {
 			fmt.Printf("Cleaned up partial directory: ./%s/\n", req.ProjectName)
 		}
 		fmt.Printf("\nGagal membuat project: %v\n", err)
@@ -319,10 +330,11 @@ func runRemove(args []string) {
 	}
 	var removable []tui.Dependency
 	for _, d := range installed {
-		if d.Managed {
-			removable = append(removable, tui.Dependency{
-				ID: idFromImportPath(d.ImportPath), Name: d.Name, Category: d.Category, ImportPath: d.ImportPath,
-			})
+		if !d.Managed {
+			continue
+		}
+		if dep, ok := tui.FindByID(idFromImportPath(d.ImportPath)); ok {
+			removable = append(removable, dep)
 		}
 	}
 	if len(removable) == 0 {
@@ -505,15 +517,23 @@ func resolvePresetDeps(presetFlag string) (map[int]tui.Dependency, error) {
 	for i, id := range preset.DepIDs {
 		dep, ok := tui.FindByID(id)
 		if !ok {
-			continue
+			// Presets are code-owned and built-in — an ID that doesn't
+			// resolve means the registry changed out from under a preset,
+			// a genitz bug, not user input to guess around.
+			return nil, fmt.Errorf("preset %q references unknown dependency ID %q — this is a genitz bug, please report it", presetFlag, id)
 		}
 		deps[i] = dep
 	}
 	return deps, nil
 }
 
-// mergeDeps unions b into a (by ImportPath, so a preset and an overlapping
-// --deps entry never produce a duplicate), returning the combined map.
+// mergeDeps unions a and b by ImportPath (so a preset and an overlapping
+// --deps entry never produce a duplicate); on a collision the entry from a
+// wins since a is inserted first — call sites pass presets as a, so a
+// preset's dependency wins over an identical one from --deps. This has no
+// observable effect today: both sides resolve the same tui.Dependency via
+// FindByID for a given ID, so "which one wins" only matters if that ever
+// stops being true.
 func mergeDeps(a, b map[int]tui.Dependency) map[int]tui.Dependency {
 	seen := make(map[string]bool, len(a))
 	merged := make(map[int]tui.Dependency, len(a)+len(b))

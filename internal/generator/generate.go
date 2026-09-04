@@ -69,12 +69,36 @@ func NewRequirementFromModel(m *tui.Model) (Requirement, error) {
 
 const bareMainGo = "package main\n\nfunc main() {}\n"
 
+// CheckPreconditions validates req (including the git-on-PATH check when
+// IncludeGitInit is set) and confirms the target directory doesn't already
+// exist — without creating anything. It's what makes --dry-run an accurate
+// preview instead of one that can report success for a run that would
+// immediately fail; PrepareNewProject calls it too, so the real run and the
+// dry-run share exactly one precondition check.
+func CheckPreconditions(req Requirement) (Requirement, error) {
+	if err := req.validate(); err != nil {
+		return req, err
+	}
+
+	targetPath, err := filepath.Abs(req.ProjectName)
+	if err != nil {
+		return req, fmt.Errorf("resolve project path: %w", err)
+	}
+
+	if err := statFreshProjectDir(targetPath); err != nil {
+		return req, err
+	}
+
+	return req, nil
+}
+
 // PrepareNewProject validates req, creates the target directory, and writes
 // a bare main.go. It's synchronous and network-free — the animated part
 // (go mod / go get) is BuildInstallSteps, run separately so the TUI can
 // show progress for it.
 func PrepareNewProject(req Requirement) (targetPath string, err error) {
-	if err := req.validate(); err != nil {
+	req, err = CheckPreconditions(req)
+	if err != nil {
 		return "", err
 	}
 
@@ -83,8 +107,8 @@ func PrepareNewProject(req Requirement) (targetPath string, err error) {
 		return "", fmt.Errorf("resolve project path: %w", err)
 	}
 
-	if err := ensureFreshProjectDir(targetPath); err != nil {
-		return "", err
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		return "", fmt.Errorf("create project directory: %w", err)
 	}
 
 	if err := os.WriteFile(filepath.Join(targetPath, "main.go"), []byte(bareMainGo), 0o644); err != nil {
@@ -259,10 +283,9 @@ func BuildAddSteps(targetDir string, deps map[int]tui.Dependency, versions map[s
 func BuildRemoveSteps(targetDir string, deps map[int]tui.Dependency) []tui.InstallStep {
 	var steps []tui.InstallStep
 	for _, importPath := range sortedImportPaths(deps) {
-		ip := importPath
 		steps = append(steps, tui.InstallStep{
-			Label: "Removing " + ip,
-			Run:   func() error { return runCaptured(targetDir, "go", "get", ip+"@none") },
+			Label: "Removing " + importPath,
+			Run:   func() error { return runCaptured(targetDir, "go", "get", importPath+"@none") },
 		})
 	}
 	steps = append(steps, tui.InstallStep{
@@ -330,13 +353,16 @@ func (r *Requirement) validate() error {
 	return nil
 }
 
-func ensureFreshProjectDir(path string) error {
+// statFreshProjectDir confirms path doesn't already exist, without creating
+// it — shared by CheckPreconditions (dry-run-safe) and PrepareNewProject
+// (which creates the directory itself right after calling this).
+func statFreshProjectDir(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("destination %q already exists", path)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("check destination: %w", err)
 	}
-	return os.MkdirAll(path, 0o755)
+	return nil
 }
 
 // sortedImportPaths dedupes and sorts the import paths of deps.
