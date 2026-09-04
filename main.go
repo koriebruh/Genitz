@@ -66,6 +66,19 @@ func main() {
 		runCompletion(args[1:])
 	case args[0] == "doctor":
 		generator.PrintDoctor(generator.RunDoctor())
+	case args[0] == "audit":
+		findings, vulnAdvisory, err := generator.AuditProject(".")
+		if err != nil {
+			logError("Failed to audit project: %v", err)
+			os.Exit(1)
+		}
+		generator.PrintAudit(findings, vulnAdvisory)
+	case args[0] == "undo":
+		if err := generator.Undo("."); err != nil {
+			logError("Nothing to undo: %v", err)
+			os.Exit(1)
+		}
+		logSuccess("Reverted go.mod/go.sum to the last snapshot")
 	case args[0] == "config":
 		runConfig(args[1:])
 	case args[0] == "search":
@@ -107,11 +120,17 @@ Usage:
   genitz completion   Print a shell completion script (bash|zsh|fish).
   genitz doctor       Check the local environment (go/git/docker/gh, GOPROXY,
                       network reachability).
+  genitz audit        Check the current project's dependencies against the
+                      curated registry for maintenance-mode packages, plus
+                      a govulncheck advisory.
+  genitz undo         Revert go.mod/go.sum to the state before the last
+                      add/remove in the current directory.
   genitz config       Get/set persistent defaults (license, author,
                       modulePrefix) — see below.
   genitz search       Search the dependency registry by name/category/description.
   genitz info         Show details for one registry dependency.
-  genitz preset       List or save dependency-bundle presets.
+  genitz preset       List/save dependency-bundle presets, or import one
+                      from a URL (preset import <url>).
   genitz history      Show a log of past init/add/remove operations.
   genitz help         Show this message.
 
@@ -327,6 +346,9 @@ func runAdd(args []string) {
 
 	model := tui.AddModel(module)
 	model.BuildSteps = func(m *tui.Model) []tui.InstallStep {
+		if err := generator.SnapshotForUndo("."); err != nil {
+			logWarn("Could not snapshot for undo: %v", err)
+		}
 		return generator.BuildAddSteps(".", m.Chosen, nil)
 	}
 
@@ -377,6 +399,11 @@ func runAddFlags(args []string) {
 	}
 	deps = mergeDeps(presetDeps, deps)
 
+	if !*dryRun {
+		if err := generator.SnapshotForUndo("."); err != nil {
+			logWarn("Could not snapshot for undo: %v", err)
+		}
+	}
 	if err := runStepsPlain(generator.BuildAddSteps(".", deps, versions), *dryRun); err != nil {
 		logError("Failed to add dependency: %v", err)
 		os.Exit(1)
@@ -429,6 +456,9 @@ func runRemove(args []string) {
 
 	model := tui.RemoveModel(module, removable)
 	model.BuildSteps = func(m *tui.Model) []tui.InstallStep {
+		if err := generator.SnapshotForUndo("."); err != nil {
+			logWarn("Could not snapshot for undo: %v", err)
+		}
 		return generator.BuildRemoveSteps(".", m.Chosen)
 	}
 
@@ -481,6 +511,11 @@ func runRemoveFlags(args []string) {
 		os.Exit(1)
 	}
 
+	if !*dryRun {
+		if err := generator.SnapshotForUndo("."); err != nil {
+			logWarn("Could not snapshot for undo: %v", err)
+		}
+	}
 	if err := runStepsPlain(generator.BuildRemoveSteps(".", deps), *dryRun); err != nil {
 		logError("Failed to remove dependency: %v", err)
 		os.Exit(1)
@@ -548,7 +583,7 @@ func runCompletion(args []string) {
 // truth for both the completion scripts below and main()'s dispatch.
 var subcommandNames = []string{
 	"init", "add", "remove", "list", "version", "completion",
-	"doctor", "config", "search", "info", "preset", "history", "help",
+	"doctor", "audit", "undo", "config", "search", "info", "preset", "history", "help",
 }
 
 // runConfig implements `genitz config` (show all), `genitz config get
@@ -641,10 +676,11 @@ func runInfo(args []string) {
 	fmt.Printf("  Docs:        https://pkg.go.dev/%s\n", dep.ImportPath)
 }
 
-// runPreset implements `genitz preset list` and `genitz preset save`.
+// runPreset implements `genitz preset list`, `genitz preset save`, and
+// `genitz preset import`.
 func runPreset(args []string) {
 	if len(args) == 0 {
-		logError("Usage: genitz preset list | genitz preset save <id> --deps id1,id2 [--name ...] [--description ...]")
+		logError("Usage: genitz preset list | genitz preset save <id> --deps id1,id2 [--name ...] [--description ...] | genitz preset import <url>")
 		os.Exit(1)
 	}
 	switch args[0] {
@@ -654,10 +690,27 @@ func runPreset(args []string) {
 		}
 	case "save":
 		runPresetSave(args[1:])
+	case "import":
+		runPresetImport(args[1:])
 	default:
-		logError("Unknown preset subcommand %q — expected list or save", args[0])
+		logError("Unknown preset subcommand %q — expected list, save, or import", args[0])
 		os.Exit(1)
 	}
+}
+
+// runPresetImport fetches and saves a preset from a URL —
+// `genitz preset import <url>`.
+func runPresetImport(args []string) {
+	if len(args) == 0 {
+		logError("Usage: genitz preset import <url>")
+		os.Exit(1)
+	}
+	preset, err := tui.ImportPresetFromURL(args[0])
+	if err != nil {
+		logError("Failed to import preset: %v", err)
+		os.Exit(1)
+	}
+	logSuccess("Preset %q imported (%d dependencies)", preset.ID, len(preset.DepIDs))
 }
 
 // runPresetSave saves the current selection (given via --deps) as a

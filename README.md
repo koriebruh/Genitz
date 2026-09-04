@@ -102,10 +102,15 @@ genitz list         List direct dependencies already in go.mod (--json supported
 genitz version      Print the genitz version.
 genitz completion   Print a shell completion script (bash|zsh|fish).
 genitz doctor       Check the local environment (go/git/docker/gh, GOPROXY, network).
+genitz audit        Check your dependencies against the curated registry for
+                    maintenance-mode packages (e.g. gorilla/mux -> chi), plus
+                    a govulncheck advisory.
+genitz undo         Revert go.mod/go.sum to the state before the last add/remove.
 genitz config       Get/set persistent defaults (license, author, modulePrefix).
 genitz search       Search the dependency registry by name/category/description.
 genitz info         Show details for one registry dependency.
-genitz preset       List presets, or save your own with `preset save`.
+genitz preset       List/save presets, or import a team's from a URL with
+                    `preset import <url>`.
 genitz history      Show a log of past init/add/remove operations.
 genitz help         Show usage.
 ```
