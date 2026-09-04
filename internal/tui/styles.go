@@ -2,16 +2,20 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Color palette — consistent across all panels.
+// Color palette — blue/orange/white, consistent across all panels. The
+// gradient logo in splash.go is the one deliberate exception (kept as-is
+// per explicit request) — everywhere else uses exactly two accent colors
+// with one fixed meaning each, not a rotating cast of colors picked per
+// screen.
 var (
-	colorPrimary  = lipgloss.Color("#A855F7") // purple  — brand
-	colorAccent   = lipgloss.Color("#22D3EE") // cyan    — active / selected
-	colorDone     = lipgloss.Color("#10B981") // green   — completed / checked
-	colorMuted    = lipgloss.Color("#6B7280") // gray    — hints / descriptions
-	colorText     = lipgloss.Color("#E5E7EB") // white   — primary text
-	colorSelected = lipgloss.Color("#F0ABFC") // pink    — cursor highlight
-	colorDivider  = lipgloss.Color("#2D1B69") // indigo  — dividers / step sep
-	colorDark     = lipgloss.Color("#1F2937") // dark    — key badge bg
+	colorPrimary  = lipgloss.Color("#3B82F6") // blue    — brand / active / structural (border, stamps)
+	colorAccent   = lipgloss.Color("#F97316") // orange  — done / confirmed / keyboard hints
+	colorDone     = lipgloss.Color("#F97316") // orange  — same accent, "completed" meaning
+	colorMuted    = lipgloss.Color("#9CA3AF") // gray    — hints / descriptions
+	colorText     = lipgloss.Color("#F8FAFC") // white   — primary text
+	colorSelected = lipgloss.Color("#F97316") // orange  — cursor-highlighted text
+	colorDivider  = lipgloss.Color("#3B82F6") // blue    — border / inner rules / step sep
+	colorDark     = lipgloss.Color("#0B1220") // near-black — stamp foreground text
 )
 
 // uiStyles groups all Lipgloss styles used in the TUI.
@@ -58,19 +62,14 @@ var (
 	installFailStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#F87171")).Bold(true)
 )
 
-// newUIStyles — hybrid brutalist accents, redesigned for color cohesion
-// after the first pass read as an inconsistent cyan/green/pink patchwork.
-// Three colors now carry three distinct, consistent meanings instead of
-// being scattered by whichever screen: colorPrimary (purple, matches the
-// gradient logo's dominant tone) marks "active/selected/labeled" state —
-// cursor, the active step, panel labels; colorAccent (cyan) is reserved
-// only for keyboard-shortcut chips (KeyBadge), so it means one specific
-// thing; colorDone (green) is reserved only for genuine success/completion
-// (checked boxes, done steps) — it's no longer slapped on InputPrompt,
-// which doesn't represent a "done" state and looked like a stray traffic
-// light. The gradient logo in splash.go stays untouched. Still
-// deliberately NOT a full border box around Container — see the Layout
-// doc in CLAUDE.md for why.
+// newUIStyles — full brutalism: a real bordered Container (see renderFrame
+// in main_view.go) instead of an ad-hoc repeated-character divider, plus a
+// disciplined two-accent palette. colorPrimary (blue) marks
+// "active/selected/labeled" structural state — cursor, active step, panel
+// labels, the border itself. colorAccent/colorDone (orange, same value)
+// marks "done/confirmed/positive" — checked boxes, completed steps, the
+// input prompt, keyboard-shortcut chips. Every other screen reuses these
+// same two roles rather than introducing a third or fourth color.
 func newUIStyles() uiStyles {
 	stamp := lipgloss.NewStyle().Foreground(colorDark).Background(colorPrimary).Bold(true)
 
