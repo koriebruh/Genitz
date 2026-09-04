@@ -23,6 +23,11 @@ type Requirement struct {
 	IncludeMakefile bool
 	IncludeGitInit  bool
 	IncludeReadme   bool
+	// IncludeCommunityFiles bundles CONTRIBUTING.md, SECURITY.md, GitHub
+	// issue templates, and (if IncludeCI is also on) .github/dependabot.yml
+	// — one toggle rather than four, same "keep the extras list short"
+	// spirit as the other checkboxes.
+	IncludeCommunityFiles bool
 	// License is one of "", "none", "mit", "apache-2.0" — "" and "none" both
 	// mean "generate nothing", kept as two spellings so the zero value (flag
 	// not passed / TUI default) behaves the same as an explicit "none".
@@ -55,19 +60,36 @@ func NewRequirementFromModel(m *tui.Model) (Requirement, error) {
 	}
 
 	return Requirement{
-		ProjectName:     projectName,
-		PackageName:     packageName,
-		Deps:            deps,
-		IncludeDocker:   m.IncludeDocker,
-		IncludeCI:       m.IncludeCI,
-		IncludeMakefile: m.IncludeMakefile,
-		IncludeGitInit:  m.IncludeGitInit,
-		IncludeReadme:   m.IncludeReadme,
-		License:         m.LicenseChoice,
+		ProjectName:           projectName,
+		PackageName:           packageName,
+		Deps:                  deps,
+		IncludeDocker:         m.IncludeDocker,
+		IncludeCI:             m.IncludeCI,
+		IncludeMakefile:       m.IncludeMakefile,
+		IncludeGitInit:        m.IncludeGitInit,
+		IncludeReadme:         m.IncludeReadme,
+		IncludeCommunityFiles: m.IncludeCommunityFiles,
+		License:               m.LicenseChoice,
 	}, nil
 }
 
 const bareMainGo = "package main\n\nfunc main() {}\n"
+
+const editorconfigContent = `root = true
+
+[*]
+indent_style = space
+indent_size = 4
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.go]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
+`
 
 // CheckPreconditions validates req (including the git-on-PATH check when
 // IncludeGitInit is set) and confirms the target directory doesn't already
@@ -115,6 +137,13 @@ func PrepareNewProject(req Requirement) (targetPath string, err error) {
 		return "", fmt.Errorf("write main.go: %w", err)
 	}
 
+	// .editorconfig is universally useful and has no toggle — same
+	// unconditional treatment as main.go itself, unlike Docker/CI/etc.
+	// which are opt-in because they carry real behavioral consequences.
+	if err := os.WriteFile(filepath.Join(targetPath, ".editorconfig"), []byte(editorconfigContent), 0o644); err != nil {
+		return "", fmt.Errorf("write .editorconfig: %w", err)
+	}
+
 	return targetPath, nil
 }
 
@@ -157,6 +186,15 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 					return nil
 				},
 			})
+
+			if envContent, ok := envExampleContent(req); ok {
+				steps = append(steps, tui.InstallStep{
+					Label: "Generating .env.example",
+					Run: func() error {
+						return os.WriteFile(filepath.Join(targetPath, ".env.example"), []byte(envContent), 0o644)
+					},
+				})
+			}
 		}
 	}
 
@@ -205,7 +243,35 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		})
 	}
 
-	if content, ok := licenseContent(req.License); ok {
+	if req.IncludeCommunityFiles {
+		steps = append(steps, tui.InstallStep{
+			Label: "Generating community files (CONTRIBUTING, SECURITY, issue templates)",
+			Run: func() error {
+				if err := os.WriteFile(filepath.Join(targetPath, "CONTRIBUTING.md"), []byte(contributingContent(req.ProjectName)), 0o644); err != nil {
+					return fmt.Errorf("write CONTRIBUTING.md: %w", err)
+				}
+				if err := os.WriteFile(filepath.Join(targetPath, "SECURITY.md"), []byte(securityContent()), 0o644); err != nil {
+					return fmt.Errorf("write SECURITY.md: %w", err)
+				}
+				issueDir := filepath.Join(targetPath, ".github", "ISSUE_TEMPLATE")
+				if err := os.MkdirAll(issueDir, 0o755); err != nil {
+					return fmt.Errorf("create .github/ISSUE_TEMPLATE: %w", err)
+				}
+				if err := os.WriteFile(filepath.Join(issueDir, "bug_report.md"), []byte(bugReportIssueTemplate), 0o644); err != nil {
+					return fmt.Errorf("write bug_report.md: %w", err)
+				}
+				if err := os.WriteFile(filepath.Join(issueDir, "feature_request.md"), []byte(featureRequestIssueTemplate), 0o644); err != nil {
+					return fmt.Errorf("write feature_request.md: %w", err)
+				}
+				if err := os.WriteFile(filepath.Join(targetPath, ".github", "dependabot.yml"), []byte(dependabotContent(req.IncludeCI)), 0o644); err != nil {
+					return fmt.Errorf("write dependabot.yml: %w", err)
+				}
+				return nil
+			},
+		})
+	}
+
+	if content, ok := licenseContent(req.License, ResolveLicenseHolder()); ok {
 		steps = append(steps, tui.InstallStep{
 			Label: "Generating LICENSE",
 			Run: func() error {

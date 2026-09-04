@@ -30,6 +30,38 @@ func TestComposeContentWithServices(t *testing.T) {
 	}
 }
 
+func TestEnvExampleContentWithEnvVars(t *testing.T) {
+	req := Requirement{Deps: map[int]tui.Dependency{
+		0: {ID: "postgres-driver"},
+		1: {ID: "redis"}, // no environment — shouldn't produce its own section
+	}}
+
+	content, ok := envExampleContent(req)
+	if !ok {
+		t.Fatal("expected ok=true when a service declares environment vars")
+	}
+	if !strings.Contains(content, "POSTGRES_PASSWORD=postgres") {
+		t.Errorf("expected postgres env vars in output, got:\n%s", content)
+	}
+	if strings.Contains(content, "# redis") {
+		t.Errorf("expected no section for a service with no env vars, got:\n%s", content)
+	}
+}
+
+func TestEnvExampleContentNoEnvVars(t *testing.T) {
+	req := Requirement{Deps: map[int]tui.Dependency{0: {ID: "redis"}}}
+	if _, ok := envExampleContent(req); ok {
+		t.Fatal("expected ok=false when the only selected service has no environment vars")
+	}
+}
+
+func TestEnvExampleContentNoServices(t *testing.T) {
+	req := Requirement{Deps: map[int]tui.Dependency{0: {ID: "fiber"}}}
+	if _, ok := envExampleContent(req); ok {
+		t.Fatal("expected ok=false when nothing selected maps to a compose service")
+	}
+}
+
 func TestComposeContentDedupesSharedService(t *testing.T) {
 	req := Requirement{Deps: map[int]tui.Dependency{
 		0: {ID: "kafka-go"},

@@ -1,5 +1,12 @@
 package generator
 
+import (
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+)
+
 // validLicenseKinds are the values licenseContent recognizes, plus "" (no
 // license) — used by ValidLicenseKind so callers can reject a typo'd
 // --license flag instead of silently generating nothing.
@@ -13,21 +20,52 @@ func ValidLicenseKind(kind string) bool {
 	return validLicenseKinds[kind]
 }
 
+// GitConfigUserName returns `git config --get user.name`'s value, or "" if
+// git isn't on PATH, isn't configured, or the lookup otherwise fails —
+// callers treat "" as "no default available" and fall back to a
+// placeholder, so a failure here is never fatal.
+func GitConfigUserName() string {
+	out, err := exec.Command("git", "config", "--get", "user.name").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// ResolveLicenseHolder returns the best available default copyright holder:
+// git config user.name first, then the persisted genitz config's author
+// (`genitz config set author "..."`), else "" — licenseContent falls back
+// to the [COPYRIGHT HOLDER] placeholder from there.
+func ResolveLicenseHolder() string {
+	if name := GitConfigUserName(); name != "" {
+		return name
+	}
+	cfg, _ := LoadConfig()
+	return cfg.Author
+}
+
 // licenseContent returns the LICENSE body for kind ("mit" or "apache-2.0"),
 // and false for "" / "none" / anything unrecognized — no license file is
-// generated in that case rather than guessing. The copyright line is left
-// as a placeholder: genitz has no reliable source for a real name (git
-// config user.name is local machine state, not necessarily who should be
-// credited), so it's left for the user to fill in rather than guessed.
-func licenseContent(kind string) (string, bool) {
+// generated in that case rather than guessing. holder fills the copyright
+// line when non-empty (typically GitConfigUserName's result); an empty
+// holder leaves the [COPYRIGHT HOLDER] bracket placeholder for the user to
+// fill in by hand, since there's no reliable source for a real name when
+// git isn't configured. The year is always the current one.
+func licenseContent(kind, holder string) (string, bool) {
+	var tmpl string
 	switch kind {
 	case "mit":
-		return mitLicense, true
+		tmpl = mitLicense
 	case "apache-2.0":
-		return apacheLicense, true
+		tmpl = apacheLicense
 	default:
 		return "", false
 	}
+	tmpl = strings.ReplaceAll(tmpl, "[year]", strconv.Itoa(time.Now().Year()))
+	if holder != "" {
+		tmpl = strings.ReplaceAll(tmpl, "[COPYRIGHT HOLDER]", holder)
+	}
+	return tmpl, true
 }
 
 const mitLicense = `MIT License

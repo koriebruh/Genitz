@@ -39,6 +39,12 @@ var extraItems = []extraItem{
 		get:         func(m *Model) bool { return m.IncludeReadme },
 		set:         func(m *Model, v bool) { m.IncludeReadme = v },
 	},
+	{
+		label:       "Community files",
+		description: "CONTRIBUTING.md, SECURITY.md, issue templates, dependabot.yml",
+		get:         func(m *Model) bool { return m.IncludeCommunityFiles },
+		set:         func(m *Model, v bool) { m.IncludeCommunityFiles = v },
+	},
 }
 
 // licenseChoices cycles through on the trailing StepExtras row — "" (none)

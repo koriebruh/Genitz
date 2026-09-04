@@ -73,6 +73,9 @@ type Model struct {
 	IncludeMakefile bool
 	IncludeGitInit  bool
 	IncludeReadme   bool
+	// IncludeCommunityFiles bundles CONTRIBUTING.md/SECURITY.md/issue
+	// templates/dependabot.yml — one checkbox for all four.
+	IncludeCommunityFiles bool
 	// LicenseChoice is one of "", "mit", "apache-2.0" — cycled on the last
 	// StepExtras row instead of a boolean checkbox, since it's a 3-way pick.
 	LicenseChoice string
@@ -500,12 +503,12 @@ func (m *Model) handleDepsKeys(msg tea.KeyMsg) (tea.Cmd, bool) {
 			}
 			return nil, true
 		case "down", "j":
-			if m.PresetCursor < len(Presets)-1 {
+			if m.PresetCursor < len(AllPresets())-1 {
 				m.PresetCursor++
 			}
 			return nil, true
 		case "enter":
-			m.applyPreset(Presets[m.PresetCursor])
+			m.applyPreset(AllPresets()[m.PresetCursor])
 			m.PresetOverlayOpen = false
 			return nil, true
 		case "esc", "p":

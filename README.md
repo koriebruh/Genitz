@@ -79,6 +79,13 @@ go install github.com/koriebruh/Genitz@latest
 This puts a `genitz` (or `Genitz`, depending on your `go install` naming)
 binary in `$(go env GOPATH)/bin` — make sure that's on your `PATH`.
 
+Prebuilt binaries for macOS/Linux/Windows are published to
+[GitHub Releases](https://github.com/koriebruh/Genitz/releases) via
+`.goreleaser.yaml` on every `v*` tag push (`.github/workflows/release.yml`).
+A Homebrew tap (`brew install koriebruh/tap/genitz`) is configured in the
+same pipeline but not live yet — it needs a separate `homebrew-tap`
+repository created first.
+
 ## Usage
 
 ```text
@@ -88,9 +95,15 @@ genitz init         Always start the new-project wizard.
 genitz add          Add dependencies to the project in the current directory
                     (requires an existing go.mod).
 genitz remove       Remove dependencies from the current project.
-genitz list         List direct dependencies already in go.mod.
+genitz list         List direct dependencies already in go.mod (--json supported).
 genitz version      Print the genitz version.
 genitz completion   Print a shell completion script (bash|zsh|fish).
+genitz doctor       Check the local environment (go/git/docker/gh, GOPROXY, network).
+genitz config       Get/set persistent defaults (license, author, modulePrefix).
+genitz search       Search the dependency registry by name/category/description.
+genitz info         Show details for one registry dependency.
+genitz preset       List presets, or save your own with `preset save`.
+genitz history      Show a log of past init/add/remove operations.
 genitz help         Show usage.
 ```
 
