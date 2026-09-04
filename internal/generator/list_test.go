@@ -75,3 +75,48 @@ func TestListInstalledMissingGoMod(t *testing.T) {
 		t.Fatal("expected an error for missing go.mod")
 	}
 }
+
+func TestListInstalledSkipsStandaloneComment(t *testing.T) {
+	dir := t.TempDir()
+	content := "module example.com/app\n\ngo 1.25.0\n\nrequire (\n" +
+		"\t// pinned for CVE-2024-xxxx, do not upgrade without checking changelog\n" +
+		"\tgithub.com/redis/go-redis/v9 v9.5.1\n" +
+		")\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ListInstalled(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(deps) != 1 {
+		t.Fatalf("expected the comment line to be skipped and only redis parsed, got %d: %+v", len(deps), deps)
+	}
+	if deps[0].ImportPath != "github.com/redis/go-redis/v9" {
+		t.Fatalf("expected redis import path, got %q", deps[0].ImportPath)
+	}
+}
+
+func TestListInstalledClosingParenWithTrailingComment(t *testing.T) {
+	dir := t.TempDir()
+	content := "module example.com/app\n\ngo 1.25.0\n\nrequire (\n" +
+		"\tgithub.com/redis/go-redis/v9 v9.5.1\n" +
+		") // end requires\n\n" +
+		"require github.com/spf13/viper v1.19.0\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ListInstalled(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// If the trailing-comment closer weren't recognized, inRequireBlock would
+	// stay stuck true and the single-line viper require below it would never
+	// be reached as a *new* block-open, silently mis-parsing the rest of the
+	// file. Both deps present confirms the closer was recognized.
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 deps (closer with trailing comment correctly recognized), got %d: %+v", len(deps), deps)
+	}
+}

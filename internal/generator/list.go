@@ -41,10 +41,17 @@ func ListInstalled(dir string) ([]InstalledDep, error) {
 		trimmed := strings.TrimSpace(raw)
 
 		switch {
+		case strings.HasPrefix(trimmed, "require (") && strings.HasSuffix(trimmed, ")"):
+			// A one-line "require ( ... )" or empty "require ()" — go mod
+			// tidy never emits this, but don't leave inRequireBlock stuck
+			// true for the rest of the file if it's ever hand-written.
+			continue
 		case strings.HasPrefix(trimmed, "require ("):
 			inRequireBlock = true
 			continue
-		case trimmed == ")":
+		case trimmed == ")" || strings.HasPrefix(trimmed, ") "):
+			// The second form catches a closer with a trailing comment,
+			// e.g. ") // end requires".
 			inRequireBlock = false
 			continue
 		case strings.HasPrefix(trimmed, "require ") && !strings.Contains(trimmed, "("):
@@ -53,7 +60,7 @@ func ListInstalled(dir string) ([]InstalledDep, error) {
 			continue
 		}
 
-		if trimmed == "" || strings.Contains(trimmed, "// indirect") {
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") || strings.Contains(trimmed, "// indirect") {
 			continue
 		}
 

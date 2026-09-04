@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/koriebruh/Genitz/internal/tui"
+)
 
 func TestResolveDepsPlain(t *testing.T) {
 	deps, versions, err := resolveDeps("fiber,redis")
@@ -36,12 +40,32 @@ func TestResolveDepsUnknownID(t *testing.T) {
 }
 
 func TestResolvePresetDeps(t *testing.T) {
+	preset, ok := tui.FindPreset("web-api")
+	if !ok {
+		t.Fatal("expected the web-api preset to exist")
+	}
+
 	deps, err := resolvePresetDeps("web-api")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(deps) == 0 {
-		t.Fatal("expected the web-api preset to resolve to at least one dependency")
+	// Every DepID must resolve — a gap here would mean a preset silently
+	// applies fewer dependencies than it advertises.
+	if len(deps) != len(preset.DepIDs) {
+		t.Fatalf("expected all %d web-api DepIDs to resolve, got %d", len(preset.DepIDs), len(deps))
+	}
+}
+
+func TestAllBuiltinPresetsFullyResolve(t *testing.T) {
+	for _, preset := range tui.Presets {
+		deps, err := resolvePresetDeps(preset.ID)
+		if err != nil {
+			t.Errorf("preset %q: %v", preset.ID, err)
+			continue
+		}
+		if len(deps) != len(preset.DepIDs) {
+			t.Errorf("preset %q: expected %d resolved deps, got %d", preset.ID, len(preset.DepIDs), len(deps))
+		}
 	}
 }
 
