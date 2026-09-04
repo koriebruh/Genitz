@@ -105,6 +105,10 @@ type Model struct {
 	InstallIndex int
 	InstallErr   error
 	Spinner      spinner.Model
+	// MascotTick counts spinner ticks during StepInstalling — renderMascot
+	// (mascot.go) divides it down to a slower frame-advance cadence so the
+	// cat animation doesn't flicker at the spinner's own tick rate.
+	MascotTick int
 
 	Done bool
 }
@@ -180,6 +184,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.Spinner, cmd = m.Spinner.Update(msg)
+		m.MascotTick++
 		return m, cmd
 	}
 
@@ -234,7 +239,7 @@ func (m *Model) renderFrame(content string) string {
 	b.WriteString(m.renderHeader(w))
 	b.WriteString(m.renderModeLine(w))
 	b.WriteString(m.renderStepNav(w))
-	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(w))))
+	b.WriteString(styles.Divider.Render(strings.Repeat("▀", dividerWidth(w))))
 	b.WriteString("\n\n")
 
 	pad := 3
@@ -690,7 +695,7 @@ func (m *Model) viewReview() string {
 	} else if hrWidth < 20 {
 		hrWidth = 20
 	}
-	hr := styles.Divider.Render(strings.Repeat("─", hrWidth)) + "\n"
+	hr := styles.Divider.Render(strings.Repeat("▀", hrWidth)) + "\n"
 
 	summaryRow := func(key, value string, valStyle lipgloss.Style) string {
 		k := lipgloss.NewStyle().Foreground(colorMuted).Width(keyW).Render(key)

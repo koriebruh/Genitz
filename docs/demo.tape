@@ -14,9 +14,9 @@ Output demo.gif
 Require genitz
 
 Set Shell "zsh"
-Set FontSize 15
+Set FontSize 14
 Set Width 1200
-Set Height 650
+Set Height 900
 Set Theme "Dracula"
 Set Padding 20
 Set TypingSpeed 60ms
