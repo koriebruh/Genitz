@@ -129,7 +129,7 @@ var registryJSON []byte
 // loaded from registry.json at package init. Generated programmatically from
 // the previous Go literal (see git history) rather than hand-transcribed, to
 // avoid corrupting any of the 120 entries in the move.
-var DependencyRegistry = mustLoadRegistry()
+var DependencyRegistry = loadUserRegistry(mustLoadRegistry())
 
 func mustLoadRegistry() []Dependency {
 	var reg []Dependency
@@ -330,8 +330,12 @@ func (m *Model) rowWindow(rows []depRow) (start, end, hiddenAbove, hiddenBelow i
 func (m *Model) renderDependencyView() string {
 	var b strings.Builder
 
-	b.WriteString(styles.PanelLabel.Render("DEPENDENCIES") + "\n")
-	b.WriteString(styles.PanelHint.Render("space opens a category, space again toggles a package, enter to review") + "\n\n")
+	label, hint := "DEPENDENCIES", "space opens a category, space again toggles a package, enter to review"
+	if m.RemoveMode {
+		label, hint = "REMOVE DEPENDENCIES", "pick which installed dependencies to remove, enter to review"
+	}
+	b.WriteString(styles.PanelLabel.Render(label) + "\n")
+	b.WriteString(styles.PanelHint.Render(hint) + "\n\n")
 
 	// ── Search bar ────────────────────────────────────────────
 	if m.SearchActive || m.SearchQuery != "" {
@@ -415,6 +419,9 @@ func (m *Model) renderDependencyView() string {
 		{"↑↓ / jk", "navigate"},
 		{"space", "open / toggle"},
 		{"enter", "review"},
+	}
+	if !m.RemoveMode {
+		hints = append(hints, keyHint{"p", "presets"})
 	}
 	if m.SearchActive {
 		hints = append(hints, keyHint{"esc", "close search"})

@@ -82,12 +82,16 @@ binary in `$(go env GOPATH)/bin` — make sure that's on your `PATH`.
 ## Usage
 
 ```text
-genitz         Auto-detect: start a new project, or add dependencies if
-               go.mod already exists in the current directory.
-genitz init    Always start the new-project wizard.
-genitz add     Add dependencies to the project in the current directory
-               (requires an existing go.mod).
-genitz help    Show usage.
+genitz             Auto-detect: start a new project, or add dependencies if
+                    go.mod already exists in the current directory.
+genitz init         Always start the new-project wizard.
+genitz add          Add dependencies to the project in the current directory
+                    (requires an existing go.mod).
+genitz remove       Remove dependencies from the current project.
+genitz list         List direct dependencies already in go.mod.
+genitz version      Print the genitz version.
+genitz completion   Print a shell completion script (bash|zsh|fish).
+genitz help         Show usage.
 ```
 
 ### Start a new project
@@ -109,23 +113,31 @@ library.
 
 ```sh
 genitz init --name my-app --module github.com/me/my-app \
-  --deps fiber,redis --docker --ci --makefile --git
-genitz add --deps zap,testify
+  --deps fiber,redis --docker --ci --makefile --git --readme --license mit
+genitz add --deps zap,testify@v1.9.0 --preset web-api
+genitz remove --deps zap --dry-run
 ```
 
-Passing `--name` (init) or `--deps` (either command) skips the wizard
-entirely — no TTY, no Bubble Tea program, just plain progress lines. Unknown
-dependency IDs fail fast with a clear message instead of guessing.
+Passing `--name` (init) or `--deps`/`--preset` (init/add/remove) skips the
+wizard entirely — no TTY, no Bubble Tea program, just plain progress lines.
+Unknown dependency IDs fail fast with a clear message instead of guessing.
+Pin a version with `id@version` (e.g. `redis@v9.5.1`); apply a starter
+bundle with `--preset` (`web-api`, `grpc-service`, `auth-service`,
+`cli-tool` — combines with `--deps`, doesn't replace it); add `--dry-run` to
+any of `init`/`add`/`remove` to print what would run without doing it.
 
-### Add dependencies to an existing project
+### Add or remove dependencies in an existing project
 
 ```sh
 cd my-existing-project   # anywhere with a go.mod
-genitz add
+genitz add       # picker, scoped to the whole registry
+genitz remove    # picker, scoped to what's already installed
+genitz list      # what's in go.mod right now
 ```
 
 Same picker, straight to it — no folder/module questions since the project
-already exists. Runs `go get` + `go mod tidy` when you confirm.
+already exists. `add` runs `go get` + `go mod tidy`; `remove` runs
+`go get <path>@none` + `go mod tidy` per package when you confirm.
 
 ### Picker keys
 

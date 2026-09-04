@@ -31,5 +31,26 @@ jobs:
             echo "$fmt_out"
             exit 1
           fi
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 `, goVersion)
+}
+
+// golangciConfigContent returns a minimal .golangci.yml, written alongside
+// ci.yml whenever CI is included — lint pairs naturally with CI, so this
+// follows the same "derive from context, no separate toggle" pattern as
+// config_stub.go's config-loader detection.
+func golangciConfigContent() string {
+	return `run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - errcheck
+    - gofmt
+`
 }

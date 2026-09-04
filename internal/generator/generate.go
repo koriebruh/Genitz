@@ -22,6 +22,15 @@ type Requirement struct {
 	IncludeCI       bool
 	IncludeMakefile bool
 	IncludeGitInit  bool
+	IncludeReadme   bool
+	// License is one of "", "none", "mit", "apache-2.0" — "" and "none" both
+	// mean "generate nothing", kept as two spellings so the zero value (flag
+	// not passed / TUI default) behaves the same as an explicit "none".
+	License string
+	// DepVersions maps an import path to a pinned version (e.g. "v2.50.0"),
+	// used by --deps id@version in the non-interactive flag flow. Nil/missing
+	// entries install unpinned (latest), same as before this field existed.
+	DepVersions map[string]string
 }
 
 // NewRequirementFromModel converts the interactive model into a concrete Requirement.
@@ -53,6 +62,8 @@ func NewRequirementFromModel(m *tui.Model) (Requirement, error) {
 		IncludeCI:       m.IncludeCI,
 		IncludeMakefile: m.IncludeMakefile,
 		IncludeGitInit:  m.IncludeGitInit,
+		IncludeReadme:   m.IncludeReadme,
+		License:         m.LicenseChoice,
 	}, nil
 }
 
@@ -139,6 +150,11 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 				}
 				return nil
 			},
+		}, tui.InstallStep{
+			Label: "Generating .golangci.yml",
+			Run: func() error {
+				return os.WriteFile(filepath.Join(targetPath, ".golangci.yml"), []byte(golangciConfigContent()), 0o644)
+			},
 		})
 	}
 
@@ -156,11 +172,29 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 		})
 	}
 
-	for _, importPath := range sortedImportPaths(req.Deps) {
-		ip := importPath
+	if req.IncludeReadme {
 		steps = append(steps, tui.InstallStep{
-			Label: "Installing " + ip,
-			Run:   func() error { return runCaptured(targetPath, "go", "get", ip) },
+			Label: "Generating README.md",
+			Run: func() error {
+				return os.WriteFile(filepath.Join(targetPath, "README.md"), []byte(readmeContent(req)), 0o644)
+			},
+		})
+	}
+
+	if content, ok := licenseContent(req.License); ok {
+		steps = append(steps, tui.InstallStep{
+			Label: "Generating LICENSE",
+			Run: func() error {
+				return os.WriteFile(filepath.Join(targetPath, "LICENSE"), []byte(content), 0o644)
+			},
+		})
+	}
+
+	for _, importPath := range sortedImportPaths(req.Deps) {
+		arg := installArg(importPath, req.DepVersions)
+		steps = append(steps, tui.InstallStep{
+			Label: "Installing " + arg,
+			Run:   func() error { return runCaptured(targetPath, "go", "get", arg) },
 		})
 	}
 
@@ -197,14 +231,38 @@ func BuildInstallSteps(targetPath string, req Requirement) []tui.InstallStep {
 }
 
 // BuildAddSteps returns the ordered go get/go mod tidy steps for installing
-// deps into the existing project at targetDir.
-func BuildAddSteps(targetDir string, deps map[int]tui.Dependency) []tui.InstallStep {
+// deps into the existing project at targetDir. versions optionally pins an
+// import path to a specific version (see installArg) — pass nil for
+// unpinned/latest installs (the interactive TUI never collects a version).
+func BuildAddSteps(targetDir string, deps map[int]tui.Dependency, versions map[string]string) []tui.InstallStep {
+	var steps []tui.InstallStep
+	for _, importPath := range sortedImportPaths(deps) {
+		arg := installArg(importPath, versions)
+		steps = append(steps, tui.InstallStep{
+			Label: "Installing " + arg,
+			Run:   func() error { return runCaptured(targetDir, "go", "get", arg) },
+		})
+	}
+	steps = append(steps, tui.InstallStep{
+		Label: "Tidying go.mod",
+		Run:   func() error { return runCaptured(targetDir, "go", "mod", "tidy") },
+	})
+	return steps
+}
+
+// BuildRemoveSteps returns the ordered go get <path>@none/go mod tidy steps
+// for dropping deps from the project at targetDir. `go get <path>@none` is
+// the documented way to remove a requirement — go mod tidy then cleans up
+// anything left unreferenced (if the code still imports it, tidy will
+// re-add it, which is correct: genitz can't know that without a full
+// source scan, so it doesn't try).
+func BuildRemoveSteps(targetDir string, deps map[int]tui.Dependency) []tui.InstallStep {
 	var steps []tui.InstallStep
 	for _, importPath := range sortedImportPaths(deps) {
 		ip := importPath
 		steps = append(steps, tui.InstallStep{
-			Label: "Installing " + ip,
-			Run:   func() error { return runCaptured(targetDir, "go", "get", ip) },
+			Label: "Removing " + ip,
+			Run:   func() error { return runCaptured(targetDir, "go", "get", ip+"@none") },
 		})
 	}
 	steps = append(steps, tui.InstallStep{
@@ -263,6 +321,12 @@ func (r *Requirement) validate() error {
 		r.PackageName = r.ProjectName
 	}
 
+	if r.IncludeGitInit {
+		if err := CheckBinary("git"); err != nil {
+			return fmt.Errorf("git init requested: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -291,6 +355,16 @@ func sortedImportPaths(deps map[int]tui.Dependency) []string {
 	}
 	sort.Strings(paths)
 	return paths
+}
+
+// installArg returns the "go get" argument for importPath — pinned to
+// versions[importPath] (e.g. "example.com/pkg@v1.2.3") when present,
+// otherwise the bare import path (unpinned/latest).
+func installArg(importPath string, versions map[string]string) string {
+	if v, ok := versions[importPath]; ok && v != "" {
+		return importPath + "@" + v
+	}
+	return importPath
 }
 
 // runCaptured runs a command with its output captured instead of streamed —
