@@ -6,11 +6,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// splashGradient is the color ramp applied row-by-row across the logo.
+// splashGradient is the color ramp applied row-by-row across the logo — a
+// blue-to-orange sweep matching the same two-color brutalist system as
+// the rest of the TUI (styles.go's colorPrimary/colorAccent), so the logo
+// no longer clashes with a purple/pink/cyan palette nothing else uses.
 var splashGradient = []string{
-	"#F5D0FE", "#F0ABFC", "#E879F9", "#D946EF",
-	"#C026D3", "#A855F7", "#9333EA", "#7C3AED",
-	"#6D28D9", "#4F46E5", "#67E8F9", "#22D3EE",
+	"#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA",
+	"#3B82F6", "#2563EB", "#1D4ED8", "#F97316",
+	"#FB923C", "#FDBA74", "#FED7AA", "#FFEDD5",
 }
 
 var splashLogo = []string{
@@ -64,16 +67,16 @@ func splashRenderTagline() string {
 		bold  bool
 	}
 	segs := []seg{
-		{"░", "#4F46E5", true, false},
-		{"ゲ", "#F0ABFC", false, true},
-		{"ェ", "#E879F9", false, true},
-		{"ニ", "#D946EF", false, true},
-		{"ト", "#C026D3", false, true},
-		{"░", "#4F46E5", true, false},
-		{"  ɢᴏ ɪɴɪᴛɪᴀʟɪᴢᴇʀ ᴘʀᴏᴊᴇᴄᴛ   ", "#818CF8", false, false},
-		{"░", "#4F46E5", true, false},
-		{"ズ", "#9333EA", false, true},
-		{"░", "#4F46E5", true, false},
+		{"░", "#3B82F6", true, false},
+		{"ゲ", "#60A5FA", false, true},
+		{"ェ", "#3B82F6", false, true},
+		{"ニ", "#2563EB", false, true},
+		{"ト", "#F97316", false, true},
+		{"░", "#3B82F6", true, false},
+		{"  ɢᴏ ɪɴɪᴛɪᴀʟɪᴢᴇʀ ᴘʀᴏᴊᴇᴄᴛ   ", "#93C5FD", false, false},
+		{"░", "#3B82F6", true, false},
+		{"ズ", "#F97316", false, true},
+		{"░", "#3B82F6", true, false},
 	}
 
 	plain := ""
@@ -114,7 +117,7 @@ func RenderHeader() string {
 // short or too narrow for the full logo.
 func RenderHeaderCompact(w int) string {
 	brand := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#A855F7")).Bold(true).
+		Foreground(lipgloss.Color("#3B82F6")).Bold(true).
 		Render("GENITZ")
 	sub := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6B7280")).
