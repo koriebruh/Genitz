@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,7 +10,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/koriebruh/Genitz/internal/generator"
+	"github.com/koriebruh/Genitz/internal/mcpserver"
 	"github.com/koriebruh/Genitz/internal/tui"
 )
 
@@ -66,6 +70,8 @@ func main() {
 		runCompletion(args[1:])
 	case args[0] == "doctor":
 		generator.PrintDoctor(generator.RunDoctor())
+	case args[0] == "mcp":
+		runMCP()
 	case args[0] == "audit":
 		findings, vulnAdvisory, err := generator.AuditProject(".")
 		if err != nil {
@@ -132,6 +138,9 @@ Usage:
   genitz preset       List/save dependency-bundle presets, or import one
                       from a URL (preset import <url>).
   genitz history      Show a log of past init/add/remove operations.
+  genitz mcp          Start an MCP server on stdio, exposing search/info/
+                      presets/audit/list/add/remove/scaffold as MCP tools for
+                      AI coding assistants (Claude Code, Cursor, etc.).
   genitz help         Show this message.
 
 Non-interactive (scripting/CI) — pass --name or --deps to skip the wizard:
@@ -583,7 +592,21 @@ func runCompletion(args []string) {
 // truth for both the completion scripts below and main()'s dispatch.
 var subcommandNames = []string{
 	"init", "add", "remove", "list", "version", "completion",
-	"doctor", "audit", "undo", "config", "search", "info", "preset", "history", "help",
+	"doctor", "mcp", "audit", "undo", "config", "search", "info", "preset", "history", "help",
+}
+
+// runMCP starts the genitz MCP server on stdio — the standard transport
+// for a local MCP server an AI coding tool (Claude Code, Cursor, etc.)
+// spawns as a subprocess and talks to over stdin/stdout, per its own MCP
+// server configuration. Exposes the same registry/lifecycle actions as
+// the CLI (search/info/presets/audit/list/add/remove/scaffold) as
+// structured MCP tools — see internal/mcpserver.
+func runMCP() {
+	server := mcpserver.NewServer()
+	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+		logError("MCP server error: %v", err)
+		os.Exit(1)
+	}
 }
 
 // runConfig implements `genitz config` (show all), `genitz config get

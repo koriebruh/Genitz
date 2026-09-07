@@ -59,6 +59,8 @@ Go CLI (Bubble Tea TUI, styled like Claude Code) with two flows:
 - `genitz history` — a local JSONL log of past `init`/`add`/`remove`
   operations (`history.go`), best-effort (`RecordHistory` swallows its own
   errors — a logging failure must never break the operation it's recording).
+- `genitz mcp` — starts an MCP server on stdio (`runMCP` in `main.go`,
+  `internal/mcpserver`) — see the dedicated section below.
 - `genitz help` — usage text.
 
 All of `init`/`add`/`remove` accept `--dry-run` — for `add`/`remove` this
@@ -132,6 +134,32 @@ Skipped under `-short`; the deps-touching tests additionally skip if
 instead of flaking. genitz's own CI (`go test ./...`, no `-short`) runs
 them for real.
 
+## MCP server (`internal/mcpserver`)
+
+`genitz mcp` runs `mcpserver.NewServer().Run(ctx, &mcp.StdioTransport{})` —
+the official Go SDK (`github.com/modelcontextprotocol/go-sdk`), stdio
+transport, the standard shape for a local MCP server an AI coding tool
+spawns as a subprocess. `internal/mcpserver/server.go` wraps the same
+`generator`/`tui` functions the CLI dispatch already calls as 8 structured
+MCP tools (`search_dependencies`, `get_dependency_info`, `list_presets`,
+`list_installed_dependencies`, `audit_project`, `add_dependencies`,
+`remove_dependencies`, `scaffold_project`) via `mcp.AddTool[In,Out]` — typed
+JSON in/out instead of an agent shelling out to `genitz` and parsing text.
+
+`resolveDepIDs`/`resolvePresetIDs`/`mergeDepMaps`/`runSteps` in
+`server.go` intentionally duplicate the equivalent logic in `main.go`
+(`resolveDeps`/`resolvePresetDeps`/`mergeDeps`/`runStepsPlain`) rather than
+being extracted to a shared package — `main` can't be imported, and the
+duplication is small enough that a new shared package would cost more than
+it saves.
+
+`internal/mcpserver/server_test.go` connects a real client/server pair over
+`mcp.NewInMemoryTransports()` — a genuine MCP protocol round-trip
+(initialize handshake, `tools/list`, `tools/call`) with no subprocess, not a
+bare Go function call — asserting all 8 tools register and exercising a
+few end-to-end (`search_dependencies`, `get_dependency_info` error path,
+`list_presets`).
+
 ## Differentiators: audit, undo, architecture diagram, preset import
 
 These exist to make the curated registry (genitz's actual unique asset) pay
@@ -202,6 +230,8 @@ off beyond the initial picker, not just add more commands:
   - `readme.go` / `license.go` — README.md/LICENSE content generators.
   - `version.go` — `Version` constant.
   - `preflight.go` — `CheckBinary`, used for the `go`/`git` checks above.
+- `internal/mcpserver/` — `server.go` (MCP tool registration + handlers),
+  `server_test.go` (in-process protocol tests) — see MCP server above.
 
 ## Dependency picker UX
 
