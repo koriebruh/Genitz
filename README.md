@@ -6,6 +6,7 @@ adding dependencies without leaving the keyboard.**
 [![Go Reference](https://pkg.go.dev/badge/github.com/koriebruh/Genitz.svg)](https://pkg.go.dev/github.com/koriebruh/Genitz)
 [![Go Report Card](https://goreportcard.com/badge/github.com/koriebruh/Genitz)](https://goreportcard.com/report/github.com/koriebruh/Genitz)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/koriebruh/Genitz?display_name=tag&sort=semver)](https://github.com/koriebruh/Genitz/releases/latest)
 
 Genitz is a single binary with two jobs: scaffold a brand-new Go project, or
 pick and install dependencies into the project you're already standing in —
@@ -71,6 +72,10 @@ printed → a few of the newer standalone commands (`search`, `doctor`,
   skips the wizard entirely — no TTY assumptions, safe for CI.
 - **No template lock-in.** Genitz writes a bare `main.go` and lets `go get`
   do the rest — it doesn't force an opinionated project layout on you.
+- **MCP server built in.** `genitz mcp` exposes the same registry search,
+  install/remove, audit, and scaffold actions as structured MCP tools over
+  stdio, so an AI coding assistant can call them directly with typed JSON
+  instead of shelling out to `genitz` and parsing text output.
 
 ## Installation
 
@@ -89,6 +94,29 @@ Prebuilt binaries for macOS/Linux/Windows are published to
 A Homebrew tap (`brew install koriebruh/tap/genitz`) is configured in the
 same pipeline but not live yet — it needs a separate `homebrew-tap`
 repository created first.
+
+### Download a prebuilt binary
+
+Each [release](https://github.com/koriebruh/Genitz/releases/latest) publishes
+a checksummed archive per OS/architecture (`.goreleaser.yaml`'s
+`name_template`: `Genitz_<version>_<os>_<arch>`) — grab the one matching
+your machine and put the extracted `genitz` (or `genitz.exe`) on your
+`PATH`:
+
+| OS | Architecture | Archive |
+|---|---|---|
+| macOS | Apple Silicon (arm64) | `Genitz_<version>_darwin_arm64.tar.gz` |
+| macOS | Intel (amd64) | `Genitz_<version>_darwin_amd64.tar.gz` |
+| Linux | amd64 | `Genitz_<version>_linux_amd64.tar.gz` |
+| Linux | arm64 | `Genitz_<version>_linux_arm64.tar.gz` |
+| Windows | amd64 | `Genitz_<version>_windows_amd64.zip` |
+| Windows | arm64 | `Genitz_<version>_windows_arm64.zip` |
+
+`checksums.txt` in the same release ships alongside every archive — verify
+before extracting. No release has been tagged yet as of writing, so the
+badge above and this table describe the pipeline's output shape, not a
+download that exists today; `go install` (above) is the only install path
+until the first `v*` tag is pushed.
 
 ## Usage
 
@@ -113,6 +141,9 @@ genitz info         Show details for one registry dependency.
 genitz preset       List/save presets, or import a team's from a URL with
                     `preset import <url>`.
 genitz history      Show a log of past init/add/remove operations.
+genitz mcp          Start an MCP server on stdio, exposing search/info/presets/
+                    audit/list/add/remove/scaffold as MCP tools for AI coding
+                    assistants (Claude Code, Cursor, etc.).
 genitz help         Show usage.
 ```
 
