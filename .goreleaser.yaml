@@ -40,19 +40,21 @@ changelog:
       - "^test:"
       - "^chore:"
 
-# Requires a separate koriebruh/homebrew-tap repository to exist, plus a
-# HOMEBREW_TAP_GITHUB_TOKEN secret (push access to that repo) on this repo
-# — neither exists yet as of writing. Until both are set up, this step will
-# fail on a real `goreleaser release` run without affecting the binaries/
-# checksums/GitHub Release, which publish as independent steps.
-brews:
-  - name: genitz
-    repository:
-      owner: koriebruh
-      name: homebrew-tap
-    directory: Formula
-    homepage: "https://github.com/koriebruh/Genitz"
-    description: "Go project starter & dependency picker CLI"
-    license: "Apache-2.0"
-    test: |
-      system "#{bin}/genitz", "version"
+# Homebrew publishing is disabled until a separate koriebruh/homebrew-tap
+# repository exists and a HOMEBREW_TAP_GITHUB_TOKEN secret (push access to
+# that repo) is added here — without both, this step fails and takes the
+# whole `goreleaser release` run down as red, even though the binaries/
+# checksums/GitHub Release publish as independent steps before it runs.
+# Re-enable by restoring the block below once the tap repo + secret exist:
+#
+# brews:
+#   - name: genitz
+#     repository:
+#       owner: koriebruh
+#       name: homebrew-tap
+#     directory: Formula
+#     homepage: "https://github.com/koriebruh/Genitz"
+#     description: "Go project starter & dependency picker CLI"
+#     license: "Apache-2.0"
+#     test: |
+#       system "#{bin}/genitz", "version"

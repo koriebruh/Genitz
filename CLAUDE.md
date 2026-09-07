@@ -160,6 +160,30 @@ bare Go function call — asserting all 8 tools register and exercising a
 few end-to-end (`search_dependencies`, `get_dependency_info` error path,
 `list_presets`).
 
+**`GENITZ_MCP_ROOT` path confinement** — unlike the plain CLI (which only
+ever touches `cwd`), the 4 dir-accepting tools
+(`list_installed_dependencies`/`audit_project`/`add_dependencies`/
+`remove_dependencies`) and `scaffold_project`'s `Name` take an
+arbitrary path from the calling agent, which can be steered by untrusted
+content the agent ingested (indirect prompt injection), not just the
+user's own typed input — a security review of this MCP surface (2026-09)
+confirmed that as a real gap. `resolveMCPPath` in `server.go` resolves
+every such path to absolute and, if `GENITZ_MCP_ROOT` is set, rejects any
+target that escapes it (`filepath.Rel` + `..`-prefix check). Opt-in and
+unset by default, so an agent legitimately targeting other projects on
+disk isn't broken — set it to confine every path-accepting tool call to
+one subtree. Covered by `TestResolveMCPPath*`/
+`TestListInstalledDependenciesRejectsPathEscapingRoot` in
+`server_test.go`.
+
+The same review found no command-injection surface (`exec.Command` in
+`generate.go`'s `runCaptured` always takes an argv array, never a shell
+string — a crafted `id@version` pin can't split into a second argument)
+and flagged the lack of a timeout on `runCaptured`'s underlying
+`exec.Command` (no `CommandContext`) as a known, pre-existing limitation
+shared with the interactive TUI/CLI path — not unique to MCP, so left
+unchanged here.
+
 ## Differentiators: audit, undo, architecture diagram, preset import
 
 These exist to make the curated registry (genitz's actual unique asset) pay

@@ -7,6 +7,8 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -163,7 +165,11 @@ type listInstalledResult struct {
 }
 
 func listInstalledDependencies(_ context.Context, _ *mcp.CallToolRequest, args dirArgs) (*mcp.CallToolResult, listInstalledResult, error) {
-	deps, err := generator.ListInstalled(dirOrDot(args.Dir))
+	dir, err := resolveMCPPath(dirOrDot(args.Dir))
+	if err != nil {
+		return nil, listInstalledResult{}, err
+	}
+	deps, err := generator.ListInstalled(dir)
 	if err != nil {
 		return nil, listInstalledResult{}, err
 	}
@@ -191,7 +197,11 @@ type auditResult struct {
 }
 
 func auditProject(_ context.Context, _ *mcp.CallToolRequest, args dirArgs) (*mcp.CallToolResult, auditResult, error) {
-	findings, advisory, err := generator.AuditProject(dirOrDot(args.Dir))
+	dir, err := resolveMCPPath(dirOrDot(args.Dir))
+	if err != nil {
+		return nil, auditResult{}, err
+	}
+	findings, advisory, err := generator.AuditProject(dir)
 	if err != nil {
 		return nil, auditResult{}, err
 	}
@@ -219,7 +229,10 @@ func addDependencies(_ context.Context, _ *mcp.CallToolRequest, args depsArgs) (
 	if err != nil {
 		return nil, stepsResult{}, err
 	}
-	dir := dirOrDot(args.Dir)
+	dir, err := resolveMCPPath(dirOrDot(args.Dir))
+	if err != nil {
+		return nil, stepsResult{}, err
+	}
 	completed, runErr := runSteps(generator.BuildAddSteps(dir, deps, versions))
 	if runErr != nil {
 		return nil, stepsResult{Completed: completed, Error: runErr.Error()}, nil
@@ -232,7 +245,10 @@ func removeDependencies(_ context.Context, _ *mcp.CallToolRequest, args depsArgs
 	if err != nil {
 		return nil, stepsResult{}, err
 	}
-	dir := dirOrDot(args.Dir)
+	dir, err := resolveMCPPath(dirOrDot(args.Dir))
+	if err != nil {
+		return nil, stepsResult{}, err
+	}
 	completed, runErr := runSteps(generator.BuildRemoveSteps(dir, deps))
 	if runErr != nil {
 		return nil, stepsResult{Completed: completed, Error: runErr.Error()}, nil
@@ -268,6 +284,9 @@ func scaffoldProject(_ context.Context, _ *mcp.CallToolRequest, args scaffoldArg
 	}
 	if !generator.ValidLicenseKind(args.License) {
 		return nil, scaffoldResult{}, fmt.Errorf("invalid license %q — expected \"\", \"mit\", or \"apache-2.0\"", args.License)
+	}
+	if _, err := resolveMCPPath(args.Name); err != nil {
+		return nil, scaffoldResult{}, err
 	}
 
 	deps, versions, err := resolveDepIDs(args.Deps)
@@ -318,6 +337,35 @@ func dirOrDot(dir string) string {
 		return "."
 	}
 	return dir
+}
+
+// resolveMCPPath resolves dir/name to an absolute path and, if
+// GENITZ_MCP_ROOT is set, rejects any target that escapes it. Unlike the
+// plain CLI (which only ever touches cwd), every MCP tool below accepts an
+// arbitrary directory/name from the calling agent — a value that can be
+// influenced by untrusted content the agent ingested (indirect prompt
+// injection), not just the user's own typed input. GENITZ_MCP_ROOT is
+// opt-in and unset by default so a host legitimately targeting other
+// projects on disk isn't broken; setting it confines every path-accepting
+// tool call to one subtree.
+func resolveMCPPath(raw string) (string, error) {
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", fmt.Errorf("resolve path %q: %w", raw, err)
+	}
+	root := strings.TrimSpace(os.Getenv("GENITZ_MCP_ROOT"))
+	if root == "" {
+		return abs, nil
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve GENITZ_MCP_ROOT %q: %w", root, err)
+	}
+	rel, err := filepath.Rel(absRoot, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes GENITZ_MCP_ROOT %q", abs, absRoot)
+	}
+	return abs, nil
 }
 
 // runSteps runs InstallSteps sequentially, collecting each completed

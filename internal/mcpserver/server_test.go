@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -134,5 +135,56 @@ func TestListPresets(t *testing.T) {
 	decodeStructured(t, res, &out)
 	if len(out.Presets) == 0 {
 		t.Fatalf("expected at least one built-in preset, got none")
+	}
+}
+
+func TestResolveMCPPathNoRootSetAllowsAnyPath(t *testing.T) {
+	got, err := resolveMCPPath("/some/arbitrary/path")
+	if err != nil {
+		t.Fatalf("expected no error with GENITZ_MCP_ROOT unset, got: %v", err)
+	}
+	if got != "/some/arbitrary/path" {
+		t.Errorf("expected resolved path to be unchanged absolute input, got %q", got)
+	}
+}
+
+func TestResolveMCPPathWithinRootSucceeds(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("GENITZ_MCP_ROOT", root)
+
+	inside := filepath.Join(root, "sub", "project")
+	got, err := resolveMCPPath(inside)
+	if err != nil {
+		t.Fatalf("expected path inside root to be allowed, got error: %v", err)
+	}
+	if got != inside {
+		t.Errorf("expected resolved path %q, got %q", inside, got)
+	}
+}
+
+func TestResolveMCPPathEscapingRootIsRejected(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("GENITZ_MCP_ROOT", root)
+
+	cases := []string{
+		filepath.Join(root, "..", "escaped"),
+		"/etc",
+		filepath.Dir(root), // parent of root
+	}
+	for _, raw := range cases {
+		if _, err := resolveMCPPath(raw); err == nil {
+			t.Errorf("expected resolveMCPPath(%q) to reject a path escaping root %q, got no error", raw, root)
+		}
+	}
+}
+
+func TestListInstalledDependenciesRejectsPathEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("GENITZ_MCP_ROOT", root)
+
+	cs := connectClient(t)
+	res := callTool(t, cs, "list_installed_dependencies", map[string]any{"dir": "/etc"})
+	if !res.IsError {
+		t.Fatalf("expected list_installed_dependencies to reject a dir escaping GENITZ_MCP_ROOT, got success: %+v", res)
 	}
 }
