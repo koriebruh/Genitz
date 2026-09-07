@@ -105,6 +105,10 @@ type Model struct {
 	InstallIndex int
 	InstallErr   error
 	Spinner      spinner.Model
+	// MascotTick counts spinner ticks during StepInstalling — renderMascot
+	// (mascot.go) divides it down to a slower frame-advance cadence so the
+	// cat animation doesn't flicker at the spinner's own tick rate.
+	MascotTick int
 
 	Done bool
 }
@@ -180,6 +184,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.Spinner, cmd = m.Spinner.Update(msg)
+		m.MascotTick++
 		return m, cmd
 	}
 
@@ -220,10 +225,23 @@ func (m *Model) View() string {
 	return m.renderFrame(content)
 }
 
-// renderFrame wraps panel content with an adaptive header, step nav, and divider.
-// Bubble Tea in alt-screen mode clips anything past the terminal width instead
-// of soft-wrapping it, so every piece here is picked or reflowed against the
-// real terminal size instead of only reacting to height (always use tea.WithAltScreen).
+// renderFrame wraps panel content with an adaptive header, step nav, and a
+// real bordered box — full brutalism, not an ad-hoc repeated-character
+// "divider" pretending to be a rule. Bubble Tea in alt-screen mode clips
+// anything past the terminal width instead of soft-wrapping it, so every
+// piece here is picked or reflowed against the real terminal size instead
+// of only reacting to height (always use tea.WithAltScreen).
+//
+// Border width accounting: the border consumes 1 column each side, and
+// Padding(0,pad) consumes pad columns each side, both counted inside
+// lipgloss's Width(). So actual text width = innerWidth - 2*pad =
+// (w-2) - 2*pad. At pad=3 (w>=50) that's w-8 — deliberately the same
+// margin viewReview's own `hrWidth := m.Width - 8` already assumes, so
+// content sized against m.Width still fits without a second width pass.
+// Below borderMinWidth the border is skipped entirely rather than
+// cramping an already-narrow terminal further.
+const borderMinWidth = 40
+
 func (m *Model) renderFrame(content string) string {
 	w := m.Width
 	if w <= 0 {
@@ -234,14 +252,18 @@ func (m *Model) renderFrame(content string) string {
 	b.WriteString(m.renderHeader(w))
 	b.WriteString(m.renderModeLine(w))
 	b.WriteString(m.renderStepNav(w))
-	b.WriteString(styles.Divider.Render(strings.Repeat("━", dividerWidth(w))))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
 	pad := 3
 	if w < 50 {
 		pad = 1
 	}
-	box := styles.Container.Padding(0, pad).Width(w)
+	box := styles.Container.Padding(0, pad)
+	if w >= borderMinWidth {
+		box = box.Border(lipgloss.ThickBorder()).BorderForeground(colorPrimary).Width(w - 2)
+	} else {
+		box = box.Width(w)
+	}
 	b.WriteString(box.Render(content))
 	return b.String()
 }
@@ -274,22 +296,6 @@ func (m *Model) renderModeLine(w int) string {
 		label = "→ Add dependency mode · " + m.ExistingModule
 	}
 	return lipgloss.NewStyle().MaxWidth(w).Render("  "+style.Render(label)) + "\n\n"
-}
-
-// dividerWidth returns the horizontal rule length clamped to terminal width.
-func dividerWidth(w int) int {
-	const max = splashLogoWidth + 4
-	if w <= 0 {
-		return max
-	}
-	n := w - 8
-	if n > max {
-		return max
-	}
-	if n < 20 {
-		return 20
-	}
-	return n
 }
 
 // wizardSteps returns the step nav entries for the model's current mode.

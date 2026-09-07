@@ -21,8 +21,9 @@ both through the same fast, keyboard-driven picker instead of hand-typing
 name the project → module path → apply the "Web API" preset (Fiber + GORM +
 Viper + Zap) from the dependency picker → Docker toggle → Extras (CI, README,
 community files, MIT license) → review → confirm → the animated Installing
-step runs a real `go get` → doc links printed → a few of the newer standalone
-commands (`search`, `doctor`, `preset list`).*
+step (with a small animated ASCII cat) runs a real `go get` → doc links
+printed → a few of the newer standalone commands (`search`, `doctor`,
+`preset list`).*
 
 ## Features
 

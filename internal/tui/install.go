@@ -76,6 +76,7 @@ func (m *Model) viewInstalling() string {
 
 	b.WriteString(styles.PanelLabel.Render("INSTALLING") + "\n")
 	b.WriteString(styles.PanelHint.Render("Running go mod / go get — sit tight") + "\n\n")
+	b.WriteString(m.renderMascot() + "\n")
 
 	for i, step := range m.InstallSteps {
 		switch {

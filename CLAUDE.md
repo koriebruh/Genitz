@@ -231,6 +231,33 @@ tmux new-session -d -s t -x 40 -y 24 "cd /some/test/dir && /tmp/genitz"
 tmux capture-pane -t t -p
 ```
 
+## Styling: hybrid brutalist + the mascot
+
+`styles.go`'s palette is a hybrid: the gradient wordmark in `splash.go`
+(`RenderHeader`, `Height >= 34` rows required — see Responsive TUI above)
+stays untouched, but structural chrome — `Cursor`, `Checkbox`, `StepActive`,
+`PanelLabel`, `InputPrompt`, `KeyBadge` — switched from bare colored text to
+solid stamped background-blocks (`Foreground(colorDark).Background(colorAccent)`
+or `colorDone`), italics dropped from hints/descriptions, and both dividers
+switched from a thin rule character to `▀` repeated. Deliberately **not** a
+full border box around `Container` — every screen's width math (`hrWidth` in
+`viewReview`, various `MaxWidth` calls) already assumes no outer border, and
+retrofitting one risks overflow across every panel for a cosmetic change.
+Verified by extracting real frames from a VHS recording via `ffmpeg` and
+viewing them (not just "should render fine") — see `docs/demo.tape`'s
+`Set FontSize 14` / `Set Height 900`, empirically tuned to actually clear
+the full-logo row threshold (the previous recording silently fell back to
+the compact header).
+
+`internal/tui/mascot.go` — a 3-frame ASCII cat cycled on `StepInstalling`
+only (`Model.MascotTick`, incremented on every `spinner.TickMsg`, divided
+by `mascotTicksPerFrame` so it doesn't flicker at the spinner's own tick
+rate). Uses a plain foreground-only style, not the stamped-block treatment
+above — a background fill would paint solid rectangles behind the cat's
+whitespace. Shows `mascotDoneFrame` once `Model.Done`. Confined to one
+screen on purpose — scattering it across every step would compete with the
+actual content (the `InstallStep` list).
+
 ## Adding a dependency to the registry
 
 `DependencyRegistry` in `internal/tui/dependencies.go` is loaded from
