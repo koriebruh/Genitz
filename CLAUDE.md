@@ -169,10 +169,14 @@ content the agent ingested (indirect prompt injection), not just the
 user's own typed input — a security review of this MCP surface (2026-09)
 confirmed that as a real gap. `resolveMCPPath` in `server.go` resolves
 every such path to absolute and, if `GENITZ_MCP_ROOT` is set, rejects any
-target that escapes it (`filepath.Rel` + `..`-prefix check). Opt-in and
-unset by default, so an agent legitimately targeting other projects on
-disk isn't broken — set it to confine every path-accepting tool call to
-one subtree. Covered by `TestResolveMCPPath*`/
+target that escapes it (`filepath.Rel` + `..`-prefix check over
+symlink-resolved paths — `evalSymlinksBestEffort` walks up to the deepest
+existing ancestor first, since a scaffold target won't exist yet; a
+santa-loop adversarial review caught the first version doing this check
+lexically only, which let a symlink planted inside root bypass it).
+Opt-in and unset by default, so an agent legitimately targeting other
+projects on disk isn't broken — set it to confine every path-accepting
+tool call to one subtree. Covered by `TestResolveMCPPath*`/
 `TestListInstalledDependenciesRejectsPathEscapingRoot` in
 `server_test.go`.
 

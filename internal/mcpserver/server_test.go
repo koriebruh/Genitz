@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -186,5 +187,25 @@ func TestListInstalledDependenciesRejectsPathEscapingRoot(t *testing.T) {
 	res := callTool(t, cs, "list_installed_dependencies", map[string]any{"dir": "/etc"})
 	if !res.IsError {
 		t.Fatalf("expected list_installed_dependencies to reject a dir escaping GENITZ_MCP_ROOT, got success: %+v", res)
+	}
+}
+
+// TestResolveMCPPathRejectsSymlinkEscapingRoot reproduces the bypass an
+// adversarial santa-loop review found: a purely lexical filepath.Rel check
+// accepts a symlink planted inside root that points outside it. root/link
+// resolves lexically to a path under root, but its real target is
+// elsewhere — resolveMCPPath must follow the symlink before comparing.
+func TestResolveMCPPathRejectsSymlinkEscapingRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	t.Setenv("GENITZ_MCP_ROOT", root)
+
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	if _, err := resolveMCPPath(filepath.Join(link, "stolen-project")); err == nil {
+		t.Fatalf("expected resolveMCPPath to reject a path traversing a symlink that escapes GENITZ_MCP_ROOT, got no error")
 	}
 }

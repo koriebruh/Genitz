@@ -348,6 +348,15 @@ func dirOrDot(dir string) string {
 // opt-in and unset by default so a host legitimately targeting other
 // projects on disk isn't broken; setting it confines every path-accepting
 // tool call to one subtree.
+//
+// The confinement check resolves symlinks (via evalSymlinksBestEffort)
+// before comparing against root — a santa-loop adversarial review found
+// that a purely lexical filepath.Abs/filepath.Rel check accepts a symlink
+// planted inside root that points outside it (e.g. root/link -> /outside),
+// which defeats the exact indirect-prompt-injection threat this exists to
+// guard against. The returned path is still the lexical abs (not the
+// symlink-resolved one) — callers should keep operating on the path the
+// agent actually asked for once it's confirmed safe.
 func resolveMCPPath(raw string) (string, error) {
 	abs, err := filepath.Abs(raw)
 	if err != nil {
@@ -361,11 +370,29 @@ func resolveMCPPath(raw string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve GENITZ_MCP_ROOT %q: %w", root, err)
 	}
-	rel, err := filepath.Rel(absRoot, abs)
+	resolvedTarget := evalSymlinksBestEffort(abs)
+	resolvedRoot := evalSymlinksBestEffort(absRoot)
+	rel, err := filepath.Rel(resolvedRoot, resolvedTarget)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q escapes GENITZ_MCP_ROOT %q", abs, absRoot)
 	}
 	return abs, nil
+}
+
+// evalSymlinksBestEffort resolves symlinks in path, walking up to the
+// deepest existing ancestor when path (or a trailing part of it) doesn't
+// exist yet — e.g. scaffold_project's target directory, which is created
+// only after this check runs. Falls back to the lexical path once no
+// ancestor at all can be resolved (reaching "/" or a permission error).
+func evalSymlinksBestEffort(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	dir := filepath.Dir(path)
+	if dir == path {
+		return path
+	}
+	return filepath.Join(evalSymlinksBestEffort(dir), filepath.Base(path))
 }
 
 // runSteps runs InstallSteps sequentially, collecting each completed
