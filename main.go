@@ -1,3 +1,7 @@
+// Command genitz scaffolds new Go projects and manages dependencies through
+// a curated registry, using an interactive terminal picker or non-interactive
+// flags — plus an MCP server (genitz mcp) so AI coding assistants can search,
+// install, and audit dependencies as structured tools.
 package main
 
 import (

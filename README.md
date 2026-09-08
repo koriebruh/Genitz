@@ -1,7 +1,7 @@
 # Genitz
 
-**A terminal CLI, styled like Claude Code, for starting Go projects and
-adding dependencies without leaving the keyboard.**
+**Genitz is a Go CLI tool, styled like Claude Code, that scaffolds new Go
+projects and installs dependencies without leaving the keyboard.**
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/koriebruh/Genitz.svg)](https://pkg.go.dev/github.com/koriebruh/Genitz)
 [![Go Report Card](https://goreportcard.com/badge/github.com/koriebruh/Genitz)](https://goreportcard.com/report/github.com/koriebruh/Genitz)
@@ -15,7 +15,7 @@ both through the same fast, keyboard-driven picker instead of hand-typing
 
 ## Demo
 
-![Genitz demo — scaffolding a new project and picking dependencies](docs/demo.gif)
+![Genitz demo — a Go CLI scaffolding a new project and picking dependencies](docs/demo.gif)
 
 *Recorded straight from the terminal with [VHS](https://github.com/charmbracelet/vhs)
 (script: [`docs/demo.tape`](docs/demo.tape)) — nothing staged. `genitz init` →
